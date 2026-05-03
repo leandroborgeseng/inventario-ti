@@ -22,7 +22,6 @@ const elements = {
   secretariaGrid: document.getElementById('secretaria-grid'),
   globalProgress: document.getElementById('global-progress'),
   exportHint: document.getElementById('export-hint'),
-  exportButton: document.getElementById('export-button'),
   logoutButton: document.getElementById('logout-button'),
   backButton: document.getElementById('back-button'),
   secretariaTitle: document.getElementById('secretaria-title'),
@@ -83,10 +82,6 @@ function bindEvents() {
     currentFilter = 'todos';
     currentSetorFilter = 'todos';
     renderHome();
-  });
-
-  elements.exportButton.addEventListener('click', () => {
-    window.location.href = '/api/exportar';
   });
 
   elements.setorFilter.addEventListener('change', async () => {
@@ -165,7 +160,6 @@ function showLogin() {
   elements.homeView.classList.add('hidden');
   elements.secretariaView.classList.add('hidden');
   elements.backButton.classList.add('hidden');
-  elements.exportButton.classList.add('hidden');
   elements.logoutButton.classList.add('hidden');
   elements.subtitle.textContent = 'Faça login para iniciar.';
 }
@@ -178,7 +172,6 @@ function renderHome() {
   elements.homeView.classList.remove('hidden');
   elements.secretariaView.classList.add('hidden');
   elements.backButton.classList.add('hidden');
-  elements.exportButton.classList.remove('hidden');
   elements.logoutButton.classList.remove('hidden');
   elements.subtitle.textContent = `${currentUser.nome} (${currentUser.usuario})`;
   elements.globalProgress.textContent = `${verificados} / ${total} computadores verificados`;
@@ -301,7 +294,7 @@ function renderComputerCard(item) {
       <div class="actions-row">
         <button class="btn-present" type="button" data-id="${item.id}" data-status="${STATUS.PRESENTE}" ${presentActive}>PRESENTE</button>
         <button class="btn-absent" type="button" data-id="${item.id}" data-status="${STATUS.AUSENTE}" ${absentActive}>AUSENTE</button>
-        <input type="text" data-field="numero_serie" value="${escapeHtml(item.numero_serie || '')}" placeholder="Número de série para PRESENTE">
+        <input type="text" data-field="numero_serie" value="${escapeHtml(item.numero_serie || '')}" placeholder="Coloque o número de série aqui (obrigatório)">
         <input type="text" data-field="observacao" value="${escapeHtml(item.observacao || '')}" placeholder="Observação opcional">
         <span class="save-state muted"></span>
       </div>
