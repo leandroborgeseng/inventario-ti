@@ -1,0 +1,369 @@
+const STATUS = {
+  PRESENTE: 'PRESENTE',
+  AUSENTE: 'AUSENTE'
+};
+
+let currentUser = null;
+let secretarias = [];
+let currentSecretaria = null;
+let currentFilter = 'todos';
+let currentSetorFilter = 'todos';
+let currentComputadores = [];
+
+const elements = {
+  subtitle: document.getElementById('app-subtitle'),
+  loginView: document.getElementById('login-view'),
+  loginForm: document.getElementById('login-form'),
+  loginUser: document.getElementById('login-user'),
+  loginPassword: document.getElementById('login-password'),
+  loginError: document.getElementById('login-error'),
+  homeView: document.getElementById('home-view'),
+  secretariaView: document.getElementById('secretaria-view'),
+  secretariaGrid: document.getElementById('secretaria-grid'),
+  globalProgress: document.getElementById('global-progress'),
+  exportHint: document.getElementById('export-hint'),
+  exportButton: document.getElementById('export-button'),
+  logoutButton: document.getElementById('logout-button'),
+  backButton: document.getElementById('back-button'),
+  secretariaTitle: document.getElementById('secretaria-title'),
+  secretariaProgress: document.getElementById('secretaria-progress'),
+  secretariaProgressBar: document.getElementById('secretaria-progress-bar'),
+  computerList: document.getElementById('computer-list'),
+  setorFilter: document.getElementById('setor-filter'),
+  setorFilterCount: document.getElementById('setor-filter-count'),
+  filterButtons: document.querySelectorAll('.filter-btn')
+};
+
+init();
+
+async function init() {
+  bindEvents();
+
+  try {
+    const { user } = await api('/api/me');
+    currentUser = user;
+    await loadHome();
+  } catch (error) {
+    showLogin();
+  }
+}
+
+function bindEvents() {
+  elements.loginForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    elements.loginError.textContent = '';
+
+    try {
+      const { user } = await api('/api/login', {
+        method: 'POST',
+        body: {
+          usuario: elements.loginUser.value.trim(),
+          senha: elements.loginPassword.value
+        }
+      });
+      currentUser = user;
+      elements.loginPassword.value = '';
+      await loadHome();
+    } catch (error) {
+      elements.loginError.textContent = error.message;
+    }
+  });
+
+  elements.logoutButton.addEventListener('click', async () => {
+    await api('/api/logout', { method: 'POST' });
+    currentUser = null;
+    currentSecretaria = null;
+    secretarias = [];
+    currentComputadores = [];
+    showLogin();
+  });
+
+  elements.backButton.addEventListener('click', () => {
+    currentSecretaria = null;
+    currentFilter = 'todos';
+    currentSetorFilter = 'todos';
+    renderHome();
+  });
+
+  elements.exportButton.addEventListener('click', () => {
+    window.location.href = '/api/exportar';
+  });
+
+  elements.setorFilter.addEventListener('change', async () => {
+    currentSetorFilter = elements.setorFilter.value;
+    await loadComputadores();
+  });
+
+  elements.filterButtons.forEach((button) => {
+    button.addEventListener('click', async () => {
+      currentFilter = button.dataset.filter;
+      elements.filterButtons.forEach((item) => item.classList.toggle('active', item === button));
+      await loadComputadores();
+    });
+  });
+
+  elements.computerList.addEventListener('click', async (event) => {
+    const button = event.target.closest('button[data-status]');
+    if (!button) {
+      return;
+    }
+
+    const card = button.closest('.computer-card');
+    const serialInput = card.querySelector('input[data-field="numero_serie"]');
+    const observationInput = card.querySelector('input[data-field="observacao"]');
+
+    if (button.dataset.status === STATUS.PRESENTE && !serialInput.value.trim()) {
+      window.alert('Informe o número de série antes de marcar como PRESENTE.');
+      serialInput.focus();
+      return;
+    }
+
+    await saveComputer(button.dataset.id, {
+      status_inventario: button.dataset.status,
+      numero_serie: button.dataset.status === STATUS.PRESENTE ? serialInput.value.trim() : '',
+      observacao: observationInput.value
+    }, card);
+  });
+
+  elements.computerList.addEventListener('change', async (event) => {
+    const input = event.target.closest('input[data-field]');
+    if (!input) {
+      return;
+    }
+
+    const card = input.closest('.computer-card');
+    const status = card.dataset.status || null;
+    const serialInput = card.querySelector('input[data-field="numero_serie"]');
+    const observationInput = card.querySelector('input[data-field="observacao"]');
+
+    if (input.dataset.field === 'numero_serie' && status !== STATUS.PRESENTE) {
+      return;
+    }
+
+    if (status === STATUS.PRESENTE && !serialInput.value.trim()) {
+      window.alert('Informe o número de série para manter este computador como PRESENTE.');
+      serialInput.focus();
+      return;
+    }
+
+    await saveComputer(card.dataset.id, {
+      status_inventario: status,
+      numero_serie: status === STATUS.PRESENTE ? serialInput.value.trim() : '',
+      observacao: observationInput.value
+    }, card);
+  });
+}
+
+async function loadHome() {
+  const data = await api('/api/secretarias');
+  secretarias = data.secretarias;
+  renderHome();
+}
+
+function showLogin() {
+  elements.loginView.classList.remove('hidden');
+  elements.homeView.classList.add('hidden');
+  elements.secretariaView.classList.add('hidden');
+  elements.backButton.classList.add('hidden');
+  elements.exportButton.classList.add('hidden');
+  elements.logoutButton.classList.add('hidden');
+  elements.subtitle.textContent = 'Faça login para iniciar.';
+}
+
+function renderHome() {
+  const total = secretarias.reduce((sum, item) => sum + item.total, 0);
+  const verificados = secretarias.reduce((sum, item) => sum + item.verificados, 0);
+
+  elements.loginView.classList.add('hidden');
+  elements.homeView.classList.remove('hidden');
+  elements.secretariaView.classList.add('hidden');
+  elements.backButton.classList.add('hidden');
+  elements.exportButton.classList.remove('hidden');
+  elements.logoutButton.classList.remove('hidden');
+  elements.subtitle.textContent = `${currentUser.nome} (${currentUser.usuario})`;
+  elements.globalProgress.textContent = `${verificados} / ${total} computadores verificados`;
+  elements.exportHint.textContent = 'As alterações são salvas no banco imediatamente, com usuário e data.';
+
+  elements.secretariaGrid.innerHTML = secretarias.map((secretaria) => `
+    <article class="secretaria-card" tabindex="0" role="button" data-secretaria="${escapeHtml(secretaria.secretaria)}">
+      <strong>${escapeHtml(secretaria.secretaria)}</strong>
+      <p>${secretaria.verificados} / ${secretaria.total} confirmados</p>
+      <div class="progress" aria-label="${secretaria.percentual}% concluído">
+        <div class="progress-bar" style="width: ${secretaria.percentual}%"></div>
+      </div>
+      <p class="muted">${secretaria.pendentes} pendente(s), ${secretaria.presentes} presente(s), ${secretaria.ausentes} ausente(s)</p>
+    </article>
+  `).join('');
+
+  elements.secretariaGrid.querySelectorAll('.secretaria-card').forEach((card) => {
+    const open = () => openSecretaria(card.dataset.secretaria);
+    card.addEventListener('click', open);
+    card.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        open();
+      }
+    });
+  });
+}
+
+async function openSecretaria(nome) {
+  currentSecretaria = nome;
+  currentFilter = 'todos';
+  currentSetorFilter = 'todos';
+  elements.filterButtons.forEach((button) => {
+    button.classList.toggle('active', button.dataset.filter === currentFilter);
+  });
+  await loadSetores();
+  await loadComputadores();
+}
+
+async function loadSetores() {
+  const data = await api(`/api/secretarias/${encodeURIComponent(currentSecretaria)}/setores`);
+  elements.setorFilter.innerHTML = [
+    '<option value="todos">Todos os setores</option>',
+    ...data.setores.map((setor) => `<option value="${escapeHtml(setor)}">${escapeHtml(setor)}</option>`)
+  ].join('');
+  elements.setorFilter.value = currentSetorFilter;
+}
+
+async function loadComputadores() {
+  const params = new URLSearchParams({
+    status: currentFilter,
+    setor: currentSetorFilter
+  });
+  const data = await api(`/api/secretarias/${encodeURIComponent(currentSecretaria)}/computadores?${params}`);
+  currentComputadores = data.computadores;
+  renderSecretaria();
+}
+
+function renderSecretaria() {
+  const secretariaSummary = secretarias.find((item) => item.secretaria === currentSecretaria);
+  const total = secretariaSummary?.total || currentComputadores.length;
+  const verificados = secretariaSummary?.verificados || 0;
+  const percentual = secretariaSummary?.percentual || 0;
+
+  elements.homeView.classList.add('hidden');
+  elements.secretariaView.classList.remove('hidden');
+  elements.backButton.classList.remove('hidden');
+  elements.logoutButton.classList.remove('hidden');
+  elements.subtitle.textContent = currentSecretaria;
+  elements.secretariaTitle.textContent = currentSecretaria;
+  elements.secretariaProgress.textContent = `${verificados} de ${total} verificados`;
+  elements.secretariaProgressBar.style.width = `${percentual}%`;
+  elements.setorFilterCount.textContent = `${currentComputadores.length} computador(es) exibido(s) com os filtros atuais.`;
+
+  if (!currentComputadores.length) {
+    elements.computerList.innerHTML = '<div class="panel empty">Nenhum computador encontrado para este filtro.</div>';
+    return;
+  }
+
+  elements.computerList.innerHTML = currentComputadores.map((item) => renderComputerCard(item)).join('');
+}
+
+function renderComputerCard(item) {
+  const statusClass = item.status_inventario ? item.status_inventario.toLowerCase() : 'pendente';
+  const presentActive = item.status_inventario === STATUS.PRESENTE ? 'aria-pressed="true"' : '';
+  const absentActive = item.status_inventario === STATUS.AUSENTE ? 'aria-pressed="true"' : '';
+
+  return `
+    <article class="computer-card ${statusClass}" data-id="${item.id}" data-status="${escapeHtml(item.status_inventario || '')}">
+      <div class="computer-main">
+        <div>
+          <span class="field-label">Placa patrimonial</span>
+          <strong class="field-value">${escapeHtml(item.placa || 'Sem placa')}</strong>
+        </div>
+        <div>
+          <span class="field-label">Bem patrimonial</span>
+          <span class="field-value">${escapeHtml(item.bem_patrimonial || '-')}</span>
+        </div>
+        <div>
+          <span class="field-label">Estado</span>
+          <span class="field-value">${escapeHtml(item.conservacao || '-')}</span>
+        </div>
+        <div>
+          <span class="field-label">Setor</span>
+          <span class="field-value">${escapeHtml(item.setor || '-')}</span>
+        </div>
+        <div>
+          <span class="field-label">Data de aquisição</span>
+          <span class="field-value">${formatDate(item.dt_aquisicao)}</span>
+        </div>
+        <div>
+          <span class="field-label">Status</span>
+          <span class="field-value">${escapeHtml(item.status_inventario || 'PENDENTE')}</span>
+        </div>
+        <div>
+          <span class="field-label">Número de série</span>
+          <span class="field-value">${escapeHtml(item.numero_serie || 'Não informado')}</span>
+        </div>
+      </div>
+      <div class="actions-row">
+        <button class="btn-present" type="button" data-id="${item.id}" data-status="${STATUS.PRESENTE}" ${presentActive}>PRESENTE</button>
+        <button class="btn-absent" type="button" data-id="${item.id}" data-status="${STATUS.AUSENTE}" ${absentActive}>AUSENTE</button>
+        <input type="text" data-field="numero_serie" value="${escapeHtml(item.numero_serie || '')}" placeholder="Número de série para PRESENTE">
+        <input type="text" data-field="observacao" value="${escapeHtml(item.observacao || '')}" placeholder="Observação opcional">
+        <span class="save-state muted"></span>
+      </div>
+    </article>
+  `;
+}
+
+async function saveComputer(id, payload, card) {
+  const saveState = card.querySelector('.save-state');
+  saveState.textContent = 'Salvando...';
+
+  try {
+    await api(`/api/computadores/${id}`, {
+      method: 'PATCH',
+      body: payload
+    });
+    saveState.textContent = 'Salvo';
+    await loadHome();
+    if (currentSecretaria) {
+      await loadComputadores();
+    }
+  } catch (error) {
+    saveState.textContent = '';
+    window.alert(error.message);
+  }
+}
+
+async function api(url, options = {}) {
+  const response = await fetch(url, {
+    method: options.method || 'GET',
+    headers: options.body ? { 'Content-Type': 'application/json' } : undefined,
+    body: options.body ? JSON.stringify(options.body) : undefined
+  });
+
+  const contentType = response.headers.get('content-type') || '';
+  const data = contentType.includes('application/json') ? await response.json() : null;
+
+  if (!response.ok) {
+    throw new Error(data?.error || 'Erro ao comunicar com o servidor.');
+  }
+
+  return data;
+}
+
+function formatDate(value) {
+  if (!value) {
+    return '-';
+  }
+
+  const [year, month, day] = value.split('-');
+  if (!year || !month || !day) {
+    return escapeHtml(value);
+  }
+
+  return `${day}/${month}/${year}`;
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}

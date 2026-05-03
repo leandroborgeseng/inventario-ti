@@ -1,0 +1,24 @@
+{
+  "name": "inventario-ti",
+  "version": "1.0.0",
+  "description": "Sistema web para inventário físico de computadores por secretaria.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "importar": "node importar-json.js",
+    "check": "node --check server.js && node --check importar-json.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "connect-pg-simple": "^10.0.0",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "express-session": "^1.19.0",
+    "pg": "^8.20.0"
+  }
+}

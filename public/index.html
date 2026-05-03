@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Inventário de Computadores</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <div class="topbar">
+      <div>
+        <h1>Inventário de Computadores</h1>
+        <p id="app-subtitle" class="muted">Faça login para iniciar.</p>
+      </div>
+      <div class="header-actions">
+        <button id="back-button" class="btn-light hidden" type="button">Voltar</button>
+        <button id="export-button" class="btn-light hidden" type="button">Exportar resultados</button>
+        <button id="logout-button" class="btn-light hidden" type="button">Sair</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section id="login-view" class="login-wrap">
+      <form id="login-form" class="panel login-card">
+        <h2>Acesso ao inventário</h2>
+        <p class="muted">Entre com o usuário e senha da secretaria.</p>
+        <label>
+          <span class="field-label">Usuário</span>
+          <input id="login-user" type="text" autocomplete="username" required>
+        </label>
+        <label>
+          <span class="field-label">Senha</span>
+          <input id="login-password" type="password" autocomplete="current-password" required>
+        </label>
+        <button class="btn-primary" type="submit">Entrar</button>
+        <p id="login-error" class="error-text"></p>
+      </form>
+    </section>
+
+    <section id="home-view" class="hidden">
+      <div class="panel">
+        <div class="status-line">
+          <div>
+            <h2>Secretarias</h2>
+            <p id="global-progress" class="muted">Nenhum dado carregado.</p>
+          </div>
+          <p id="export-hint" class="muted">As alterações são salvas no banco imediatamente.</p>
+        </div>
+      </div>
+      <div id="secretaria-grid" class="secretaria-grid"></div>
+    </section>
+
+    <section id="secretaria-view" class="hidden">
+      <div class="panel">
+        <div class="status-line">
+          <div>
+            <h2 id="secretaria-title">Secretaria</h2>
+            <p id="secretaria-progress" class="muted">0 de 0 verificados</p>
+          </div>
+          <div class="progress" style="min-width: 220px; flex: 1 1 260px;">
+            <div id="secretaria-progress-bar" class="progress-bar"></div>
+          </div>
+        </div>
+        <div class="filters" aria-label="Filtros">
+          <button class="btn-ghost filter-btn active" type="button" data-filter="todos">Todos</button>
+          <button class="btn-ghost filter-btn" type="button" data-filter="pendentes">Pendentes</button>
+          <button class="btn-ghost filter-btn" type="button" data-filter="presentes">Presentes</button>
+          <button class="btn-ghost filter-btn" type="button" data-filter="ausentes">Ausentes</button>
+        </div>
+        <div class="setor-filter">
+          <label class="field-label" for="setor-filter">Filtrar por setor</label>
+          <select id="setor-filter">
+            <option value="todos">Todos os setores</option>
+          </select>
+          <p id="setor-filter-count" class="muted"></p>
+        </div>
+      </div>
+      <div id="computer-list" class="computer-list" style="margin-top: 16px;"></div>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>
