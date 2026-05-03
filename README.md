@@ -20,6 +20,12 @@ npm run importar
 
 O importador cria `usuarios_criados.json` com os usuários e senhas gerados. Esse arquivo fica ignorado pelo Git.
 
+Se os usuários já existirem e você precisar aplicar novamente as senhas definidas em `ADMIN_PASSWORD` e `DEFAULT_SECRETARIA_PASSWORD`, rode:
+
+```bash
+RESET_PASSWORDS=true npm run importar
+```
+
 4. Inicie o sistema:
 
 ```bash

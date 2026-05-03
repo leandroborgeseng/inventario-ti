@@ -7,6 +7,7 @@ const { pool, query } = require('./db');
 const INVENTARIO_PATH = path.join(__dirname, 'inventario_computadores.json');
 const SCHEMA_PATH = path.join(__dirname, 'schema.sql');
 const CREDENCIAIS_PATH = path.join(__dirname, 'usuarios_criados.json');
+const ATUALIZAR_SENHAS = process.env.RESET_PASSWORDS === 'true';
 
 async function main() {
   const schema = await fs.readFile(SCHEMA_PATH, 'utf8');
@@ -18,36 +19,39 @@ async function main() {
   const credenciaisCriadas = [];
 
   const adminPassword = process.env.ADMIN_PASSWORD || gerarSenha();
-  const adminCriado = await criarUsuario({
+  const adminResultado = await criarUsuario({
     nome: 'Administrador',
     usuario: 'admin',
     senha: adminPassword,
     secretaria: null,
-    perfil: 'admin'
+    perfil: 'admin',
+    atualizarSenha: Boolean(process.env.ADMIN_PASSWORD) && ATUALIZAR_SENHAS
   });
 
-  if (adminCriado) {
+  if (adminResultado) {
     credenciaisCriadas.push({
       nome: 'Administrador',
       usuario: 'admin',
       senha: adminPassword,
-      perfil: 'admin'
+      perfil: 'admin',
+      acao: adminResultado
     });
   }
 
   for (const [secretaria, computadores] of Object.entries(secretarias)) {
     const usuario = gerarUsuarioSecretaria(secretaria);
     const senha = process.env.DEFAULT_SECRETARIA_PASSWORD || gerarSenha();
-    const criado = await criarUsuario({
+    const resultado = await criarUsuario({
       nome: secretaria,
       usuario,
       senha,
       secretaria,
-      perfil: 'secretaria'
+      perfil: 'secretaria',
+      atualizarSenha: Boolean(process.env.DEFAULT_SECRETARIA_PASSWORD) && ATUALIZAR_SENHAS
     });
 
-    if (criado) {
-      credenciaisCriadas.push({ nome: secretaria, usuario, senha, perfil: 'secretaria' });
+    if (resultado) {
+      credenciaisCriadas.push({ nome: secretaria, usuario, senha, perfil: 'secretaria', acao: resultado });
     }
 
     for (const computador of computadores) {
@@ -95,7 +99,7 @@ async function main() {
   console.log('Importação concluída.');
 }
 
-async function criarUsuario({ nome, usuario, senha, secretaria, perfil }) {
+async function criarUsuario({ nome, usuario, senha, secretaria, perfil, atualizarSenha }) {
   const senhaHash = await bcrypt.hash(senha, 12);
   const result = await query(
     `INSERT INTO usuarios (nome, usuario, senha_hash, secretaria, perfil)
@@ -105,7 +109,26 @@ async function criarUsuario({ nome, usuario, senha, secretaria, perfil }) {
     [nome, usuario, senhaHash, secretaria, perfil]
   );
 
-  return result.rowCount > 0;
+  if (result.rowCount > 0) {
+    return 'criado';
+  }
+
+  if (!atualizarSenha) {
+    return null;
+  }
+
+  await query(
+    `UPDATE usuarios
+     SET senha_hash = $1,
+         nome = $2,
+         secretaria = $3,
+         perfil = $4,
+         ativo = true
+     WHERE usuario = $5`,
+    [senhaHash, nome, secretaria, perfil, usuario]
+  );
+
+  return 'senha_atualizada';
 }
 
 function gerarUsuarioSecretaria(secretaria) {
