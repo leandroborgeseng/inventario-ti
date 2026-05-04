@@ -5,9 +5,17 @@ CREATE TABLE IF NOT EXISTS usuarios (
   senha_hash TEXT NOT NULL,
   secretaria TEXT,
   perfil TEXT NOT NULL CHECK (perfil IN ('admin', 'secretaria')),
+  must_change_password BOOLEAN NOT NULL DEFAULT true,
   ativo BOOLEAN NOT NULL DEFAULT true,
   criado_em TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+ALTER TABLE usuarios
+  ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT true;
+
+UPDATE usuarios
+SET must_change_password = false
+WHERE perfil = 'admin';
 
 CREATE TABLE IF NOT EXISTS computadores (
   id BIGSERIAL PRIMARY KEY,

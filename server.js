@@ -39,7 +39,7 @@ app.post('/api/login', async (req, res) => {
   }
 
   const result = await query(
-    `SELECT id, nome, usuario, senha_hash, secretaria, perfil
+    `SELECT id, nome, usuario, senha_hash, secretaria, perfil, must_change_password
      FROM usuarios
      WHERE usuario = $1 AND ativo = true`,
     [usuario]
@@ -65,7 +65,84 @@ app.get('/api/me', requireAuth, (req, res) => {
   res.json({ user: req.session.user });
 });
 
-app.get('/api/secretarias', requireAuth, async (req, res) => {
+app.post('/api/change-password', requireAuth, async (req, res) => {
+  const { senha_atual, nova_senha } = req.body || {};
+
+  if (!senha_atual || !nova_senha) {
+    return res.status(400).json({ error: 'Informe a senha atual e a nova senha.' });
+  }
+
+  if (String(nova_senha).length < 8) {
+    return res.status(400).json({ error: 'A nova senha deve ter pelo menos 8 caracteres.' });
+  }
+
+  const result = await query(
+    `SELECT id, senha_hash
+     FROM usuarios
+     WHERE id = $1 AND ativo = true`,
+    [req.session.user.id]
+  );
+  const user = result.rows[0];
+
+  if (!user || !(await bcrypt.compare(senha_atual, user.senha_hash))) {
+    return res.status(401).json({ error: 'Senha atual inválida.' });
+  }
+
+  const senhaHash = await bcrypt.hash(nova_senha, 12);
+  await query(
+    `UPDATE usuarios
+     SET senha_hash = $1,
+         must_change_password = false
+     WHERE id = $2`,
+    [senhaHash, req.session.user.id]
+  );
+
+  req.session.user.must_change_password = false;
+  return res.json({ user: req.session.user });
+});
+
+app.get('/api/admin/users', requireAuth, requirePasswordReady, requireAdmin, async (req, res) => {
+  const result = await query(
+    `SELECT id, nome, usuario, secretaria, perfil, ativo, must_change_password
+     FROM usuarios
+     WHERE perfil = 'secretaria'
+     ORDER BY nome`
+  );
+
+  res.json({ users: result.rows });
+});
+
+app.patch('/api/admin/users/:id/reset-password', requireAuth, requirePasswordReady, requireAdmin, async (req, res) => {
+  const id = Number(req.params.id);
+  const { senha_temporaria } = req.body || {};
+
+  if (!Number.isInteger(id)) {
+    return res.status(400).json({ error: 'Usuário inválido.' });
+  }
+
+  if (!senha_temporaria || String(senha_temporaria).length < 8) {
+    return res.status(400).json({ error: 'A senha temporária deve ter pelo menos 8 caracteres.' });
+  }
+
+  const senhaHash = await bcrypt.hash(senha_temporaria, 12);
+  const result = await query(
+    `UPDATE usuarios
+     SET senha_hash = $1,
+         must_change_password = true,
+         ativo = true
+     WHERE id = $2 AND perfil = 'secretaria'
+     RETURNING id, nome, usuario, secretaria, perfil, ativo, must_change_password`,
+    [senhaHash, id]
+  );
+
+  if (result.rowCount === 0) {
+    return res.status(404).json({ error: 'Usuário de secretaria não encontrado.' });
+  }
+
+  return res.json({ user: result.rows[0] });
+});
+
+app.get('/api/secretarias', requireAuth, requirePasswordReady, async (req, res) => {
   const params = [];
   let where = '';
 
@@ -97,7 +174,7 @@ app.get('/api/secretarias', requireAuth, async (req, res) => {
   });
 });
 
-app.get('/api/secretarias/:secretaria/computadores', requireAuth, canAccessSecretariaParam, async (req, res) => {
+app.get('/api/secretarias/:secretaria/computadores', requireAuth, requirePasswordReady, canAccessSecretariaParam, async (req, res) => {
   const { secretaria } = req.params;
   const { status, setor } = req.query;
   const params = [secretaria];
@@ -143,7 +220,7 @@ app.get('/api/secretarias/:secretaria/computadores', requireAuth, canAccessSecre
   res.json({ computadores: result.rows });
 });
 
-app.get('/api/secretarias/:secretaria/setores', requireAuth, canAccessSecretariaParam, async (req, res) => {
+app.get('/api/secretarias/:secretaria/setores', requireAuth, requirePasswordReady, canAccessSecretariaParam, async (req, res) => {
   const result = await query(
     `SELECT COALESCE(NULLIF(TRIM(setor), ''), 'Sem setor') AS setor
      FROM computadores
@@ -156,7 +233,7 @@ app.get('/api/secretarias/:secretaria/setores', requireAuth, canAccessSecretaria
   res.json({ setores: result.rows.map((row) => row.setor) });
 });
 
-app.patch('/api/computadores/:id', requireAuth, async (req, res) => {
+app.patch('/api/computadores/:id', requireAuth, requirePasswordReady, async (req, res) => {
   const id = Number(req.params.id);
   const { status_inventario, numero_serie = '', observacao = '' } = req.body || {};
 
@@ -256,7 +333,7 @@ app.patch('/api/computadores/:id', requireAuth, async (req, res) => {
   }
 });
 
-app.get('/api/exportar', requireAuth, async (req, res) => {
+app.get('/api/exportar', requireAuth, requirePasswordReady, async (req, res) => {
   const params = [];
   let where = '';
 
@@ -331,9 +408,38 @@ async function ensureSchema() {
   await query(schema);
 }
 
-function requireAuth(req, res, next) {
+async function requireAuth(req, res, next) {
   if (!req.session.user) {
     return res.status(401).json({ error: 'Sessão expirada. Faça login novamente.' });
+  }
+
+  const result = await query(
+    `SELECT id, nome, usuario, secretaria, perfil, must_change_password
+     FROM usuarios
+     WHERE id = $1 AND ativo = true`,
+    [req.session.user.id]
+  );
+  const user = result.rows[0];
+
+  if (!user) {
+    req.session.destroy(() => {});
+    return res.status(401).json({ error: 'Sessão expirada. Faça login novamente.' });
+  }
+
+  req.session.user = sanitizeUser(user);
+  return next();
+}
+
+function requirePasswordReady(req, res, next) {
+  if (req.session.user.must_change_password) {
+    return res.status(403).json({ error: 'Troque sua senha antes de continuar.', must_change_password: true });
+  }
+  return next();
+}
+
+function requireAdmin(req, res, next) {
+  if (req.session.user.perfil !== 'admin') {
+    return res.status(403).json({ error: 'Acesso restrito ao administrador.' });
   }
   return next();
 }
@@ -355,7 +461,8 @@ function sanitizeUser(user) {
     nome: user.nome,
     usuario: user.usuario,
     secretaria: user.secretaria,
-    perfil: user.perfil
+    perfil: user.perfil,
+    must_change_password: user.must_change_password
   };
 }
 

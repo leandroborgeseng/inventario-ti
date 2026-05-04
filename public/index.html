@@ -38,6 +38,27 @@
       </form>
     </section>
 
+    <section id="change-password-view" class="login-wrap hidden">
+      <form id="change-password-form" class="panel login-card">
+        <h2>Troque sua senha</h2>
+        <p class="muted">Por segurança, é obrigatório trocar a senha temporária antes de acessar o inventário.</p>
+        <label>
+          <span class="field-label">Senha atual</span>
+          <input id="current-password" type="password" autocomplete="current-password" required>
+        </label>
+        <label>
+          <span class="field-label">Nova senha</span>
+          <input id="new-password" type="password" autocomplete="new-password" minlength="8" required>
+        </label>
+        <label>
+          <span class="field-label">Confirmar nova senha</span>
+          <input id="confirm-password" type="password" autocomplete="new-password" minlength="8" required>
+        </label>
+        <button class="btn-primary" type="submit">Salvar nova senha</button>
+        <p id="change-password-error" class="error-text"></p>
+      </form>
+    </section>
+
     <section id="home-view" class="hidden">
       <div class="panel">
         <div class="status-line">
@@ -47,6 +68,15 @@
           </div>
           <p id="export-hint" class="muted">As alterações são salvas no banco imediatamente.</p>
         </div>
+      </div>
+      <div id="admin-users-panel" class="panel admin-panel hidden">
+        <div class="status-line">
+          <div>
+            <h2>Usuários das secretarias</h2>
+            <p class="muted">Defina uma senha temporária quando algum usuário esquecer a senha. No próximo acesso, ele será obrigado a trocar.</p>
+          </div>
+        </div>
+        <div id="admin-users-list" class="admin-users-list"></div>
       </div>
       <div id="secretaria-grid" class="secretaria-grid"></div>
     </section>

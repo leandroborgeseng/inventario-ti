@@ -160,6 +160,41 @@ select {
   gap: 6px;
 }
 
+.admin-panel {
+  margin-top: 18px;
+}
+
+.admin-users-list {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-user-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.5fr) minmax(190px, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+  padding: 12px;
+  border: 1px solid var(--cinza-borda);
+  border-radius: 12px;
+  background: #fbfdff;
+}
+
+.admin-user-row input {
+  width: 100%;
+}
+
+.badge {
+  display: inline-block;
+  margin-top: 4px;
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: #eef3f8;
+  color: var(--azul);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
 .secretaria-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -341,6 +376,10 @@ select {
   }
 
   .computer-main {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-user-row {
     grid-template-columns: 1fr;
   }
 

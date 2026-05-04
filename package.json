@@ -4,7 +4,7 @@
   "description": "Sistema web para inventário físico de computadores por secretaria.",
   "main": "server.js",
   "scripts": {
-    "prestart": "RESET_PASSWORDS=true node importar-json.js",
+    "prestart": "node importar-json.js",
     "start": "node server.js",
     "dev": "node server.js",
     "importar": "node importar-json.js",

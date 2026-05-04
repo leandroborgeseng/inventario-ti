@@ -17,6 +17,12 @@ const elements = {
   loginUser: document.getElementById('login-user'),
   loginPassword: document.getElementById('login-password'),
   loginError: document.getElementById('login-error'),
+  changePasswordView: document.getElementById('change-password-view'),
+  changePasswordForm: document.getElementById('change-password-form'),
+  currentPassword: document.getElementById('current-password'),
+  newPassword: document.getElementById('new-password'),
+  confirmPassword: document.getElementById('confirm-password'),
+  changePasswordError: document.getElementById('change-password-error'),
   homeView: document.getElementById('home-view'),
   secretariaView: document.getElementById('secretaria-view'),
   secretariaGrid: document.getElementById('secretaria-grid'),
@@ -30,6 +36,8 @@ const elements = {
   computerList: document.getElementById('computer-list'),
   setorFilter: document.getElementById('setor-filter'),
   setorFilterCount: document.getElementById('setor-filter-count'),
+  adminUsersPanel: document.getElementById('admin-users-panel'),
+  adminUsersList: document.getElementById('admin-users-list'),
   filterButtons: document.querySelectorAll('.filter-btn')
 };
 
@@ -41,6 +49,10 @@ async function init() {
   try {
     const { user } = await api('/api/me');
     currentUser = user;
+    if (currentUser.must_change_password) {
+      showChangePassword();
+      return;
+    }
     await loadHome();
   } catch (error) {
     showLogin();
@@ -62,9 +74,38 @@ function bindEvents() {
       });
       currentUser = user;
       elements.loginPassword.value = '';
+      if (currentUser.must_change_password) {
+        showChangePassword();
+        return;
+      }
       await loadHome();
     } catch (error) {
       elements.loginError.textContent = error.message;
+    }
+  });
+
+  elements.changePasswordForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    elements.changePasswordError.textContent = '';
+
+    if (elements.newPassword.value !== elements.confirmPassword.value) {
+      elements.changePasswordError.textContent = 'A confirmação não confere com a nova senha.';
+      return;
+    }
+
+    try {
+      const { user } = await api('/api/change-password', {
+        method: 'POST',
+        body: {
+          senha_atual: elements.currentPassword.value,
+          nova_senha: elements.newPassword.value
+        }
+      });
+      currentUser = user;
+      elements.changePasswordForm.reset();
+      await loadHome();
+    } catch (error) {
+      elements.changePasswordError.textContent = error.message;
     }
   });
 
@@ -74,6 +115,7 @@ function bindEvents() {
     currentSecretaria = null;
     secretarias = [];
     currentComputadores = [];
+    elements.changePasswordForm.reset();
     showLogin();
   });
 
@@ -147,16 +189,52 @@ function bindEvents() {
       observacao: observationInput.value
     }, card);
   });
+
+  elements.adminUsersList.addEventListener('click', async (event) => {
+    const button = event.target.closest('button[data-reset-user-id]');
+    if (!button) {
+      return;
+    }
+
+    const row = button.closest('.admin-user-row');
+    const input = row.querySelector('input[data-temp-password]');
+    const state = row.querySelector('.save-state');
+    const senhaTemporaria = input.value.trim();
+
+    if (senhaTemporaria.length < 8) {
+      window.alert('Informe uma senha temporária com pelo menos 8 caracteres.');
+      input.focus();
+      return;
+    }
+
+    state.textContent = 'Resetando...';
+    try {
+      await api(`/api/admin/users/${button.dataset.resetUserId}/reset-password`, {
+        method: 'PATCH',
+        body: { senha_temporaria: senhaTemporaria }
+      });
+      input.value = '';
+      state.textContent = 'Senha resetada';
+      await loadAdminUsers();
+    } catch (error) {
+      state.textContent = '';
+      window.alert(error.message);
+    }
+  });
 }
 
 async function loadHome() {
   const data = await api('/api/secretarias');
   secretarias = data.secretarias;
   renderHome();
+  if (currentUser.perfil === 'admin') {
+    await loadAdminUsers();
+  }
 }
 
 function showLogin() {
   elements.loginView.classList.remove('hidden');
+  elements.changePasswordView.classList.add('hidden');
   elements.homeView.classList.add('hidden');
   elements.secretariaView.classList.add('hidden');
   elements.backButton.classList.add('hidden');
@@ -164,11 +242,22 @@ function showLogin() {
   elements.subtitle.textContent = 'Faça login para iniciar.';
 }
 
+function showChangePassword() {
+  elements.loginView.classList.add('hidden');
+  elements.changePasswordView.classList.remove('hidden');
+  elements.homeView.classList.add('hidden');
+  elements.secretariaView.classList.add('hidden');
+  elements.backButton.classList.add('hidden');
+  elements.logoutButton.classList.remove('hidden');
+  elements.subtitle.textContent = `${currentUser.nome} (${currentUser.usuario})`;
+}
+
 function renderHome() {
   const total = secretarias.reduce((sum, item) => sum + item.total, 0);
   const verificados = secretarias.reduce((sum, item) => sum + item.verificados, 0);
 
   elements.loginView.classList.add('hidden');
+  elements.changePasswordView.classList.add('hidden');
   elements.homeView.classList.remove('hidden');
   elements.secretariaView.classList.add('hidden');
   elements.backButton.classList.add('hidden');
@@ -176,6 +265,7 @@ function renderHome() {
   elements.subtitle.textContent = `${currentUser.nome} (${currentUser.usuario})`;
   elements.globalProgress.textContent = `${verificados} / ${total} computadores verificados`;
   elements.exportHint.textContent = 'As alterações são salvas no banco imediatamente, com usuário e data.';
+  elements.adminUsersPanel.classList.toggle('hidden', currentUser.perfil !== 'admin');
 
   elements.secretariaGrid.innerHTML = secretarias.map((secretaria) => `
     <article class="secretaria-card" tabindex="0" role="button" data-secretaria="${escapeHtml(secretaria.secretaria)}">
@@ -198,6 +288,27 @@ function renderHome() {
       }
     });
   });
+}
+
+async function loadAdminUsers() {
+  const data = await api('/api/admin/users');
+  elements.adminUsersList.innerHTML = data.users.map((user) => `
+    <div class="admin-user-row">
+      <div>
+        <strong>${escapeHtml(user.nome)}</strong>
+        <p class="muted">${escapeHtml(user.usuario)}</p>
+        <span class="badge">${user.must_change_password ? 'Troca obrigatória pendente' : 'Senha definida'}</span>
+      </div>
+      <label>
+        <span class="field-label">Senha temporária</span>
+        <input type="text" data-temp-password placeholder="Nova senha temporária">
+      </label>
+      <div>
+        <button class="btn-primary" type="button" data-reset-user-id="${user.id}">Resetar senha</button>
+        <span class="save-state muted"></span>
+      </div>
+    </div>
+  `).join('');
 }
 
 async function openSecretaria(nome) {

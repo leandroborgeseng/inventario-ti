@@ -25,7 +25,8 @@ async function main() {
     senha: adminPassword,
     secretaria: null,
     perfil: 'admin',
-    atualizarSenha: Boolean(process.env.ADMIN_PASSWORD) && ATUALIZAR_SENHAS
+    atualizarSenha: Boolean(process.env.ADMIN_PASSWORD) && ATUALIZAR_SENHAS,
+    mustChangePassword: false
   });
 
   if (adminResultado) {
@@ -47,7 +48,8 @@ async function main() {
       senha,
       secretaria,
       perfil: 'secretaria',
-      atualizarSenha: Boolean(process.env.DEFAULT_SECRETARIA_PASSWORD) && ATUALIZAR_SENHAS
+      atualizarSenha: Boolean(process.env.DEFAULT_SECRETARIA_PASSWORD) && ATUALIZAR_SENHAS,
+      mustChangePassword: true
     });
 
     if (resultado) {
@@ -99,14 +101,14 @@ async function main() {
   console.log('Importação concluída.');
 }
 
-async function criarUsuario({ nome, usuario, senha, secretaria, perfil, atualizarSenha }) {
+async function criarUsuario({ nome, usuario, senha, secretaria, perfil, atualizarSenha, mustChangePassword }) {
   const senhaHash = await bcrypt.hash(senha, 12);
   const result = await query(
-    `INSERT INTO usuarios (nome, usuario, senha_hash, secretaria, perfil)
-     VALUES ($1, $2, $3, $4, $5)
+    `INSERT INTO usuarios (nome, usuario, senha_hash, secretaria, perfil, must_change_password)
+     VALUES ($1, $2, $3, $4, $5, $6)
      ON CONFLICT (usuario) DO NOTHING
      RETURNING id`,
-    [nome, usuario, senhaHash, secretaria, perfil]
+    [nome, usuario, senhaHash, secretaria, perfil, mustChangePassword]
   );
 
   if (result.rowCount > 0) {
@@ -123,9 +125,10 @@ async function criarUsuario({ nome, usuario, senha, secretaria, perfil, atualiza
          nome = $2,
          secretaria = $3,
          perfil = $4,
-         ativo = true
-     WHERE usuario = $5`,
-    [senhaHash, nome, secretaria, perfil, usuario]
+         ativo = true,
+         must_change_password = $5
+     WHERE usuario = $6`,
+    [senhaHash, nome, secretaria, perfil, mustChangePassword, usuario]
   );
 
   return 'senha_atualizada';
