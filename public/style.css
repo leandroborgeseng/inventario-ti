@@ -213,6 +213,21 @@ select {
   margin: 8px 0 0;
 }
 
+.command-hint {
+  background: #eef3f8;
+  border: 1px solid var(--cinza-borda);
+  border-radius: 10px;
+  color: var(--azul);
+  font-weight: 700;
+  padding: 10px 12px;
+}
+
+code {
+  background: #e7edf3;
+  border-radius: 6px;
+  padding: 2px 5px;
+}
+
 .badge {
   display: inline-block;
   margin-top: 4px;
@@ -403,6 +418,22 @@ select {
 .actions-row input {
   flex: 1 1 260px;
   min-width: 220px;
+}
+
+.inventory-input {
+  display: grid;
+  flex: 1 1 260px;
+  gap: 4px;
+  min-width: 220px;
+}
+
+.inventory-input input {
+  min-width: 0;
+  width: 100%;
+}
+
+.required-field .field-label {
+  color: var(--azul);
 }
 
 .empty,

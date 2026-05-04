@@ -515,10 +515,22 @@ function renderComputerCard(item) {
       <div class="actions-row">
         <button class="btn-present" type="button" data-id="${item.id}" data-status="${STATUS.PRESENTE}" ${presentActive}>PRESENTE</button>
         <button class="btn-absent" type="button" data-id="${item.id}" data-status="${STATUS.AUSENTE}" ${absentActive}>AUSENTE</button>
-        <input type="text" data-field="numero_serie" value="${escapeHtml(item.numero_serie || '')}" placeholder="Número de série obrigatório" required>
-        <input type="text" data-field="nome_maquina" value="${escapeHtml(item.nome_maquina || '')}" placeholder="Nome da Máquina">
-        <input type="text" data-field="ip_maquina" value="${escapeHtml(item.ip_maquina || '')}" placeholder="IP da Máquina">
-        <input type="text" data-field="observacao" value="${escapeHtml(item.observacao || '')}" placeholder="Observação opcional">
+        <label class="inventory-input required-field">
+          <span class="field-label">Número de série *</span>
+          <input type="text" data-field="numero_serie" value="${escapeHtml(item.numero_serie || '')}" placeholder="Ex.: ABC123456" required>
+        </label>
+        <label class="inventory-input">
+          <span class="field-label">Nome da máquina</span>
+          <input type="text" data-field="nome_maquina" value="${escapeHtml(item.nome_maquina || '')}" placeholder="Nome da Máquina">
+        </label>
+        <label class="inventory-input">
+          <span class="field-label">IP da máquina</span>
+          <input type="text" data-field="ip_maquina" value="${escapeHtml(item.ip_maquina || '')}" placeholder="IP da Máquina">
+        </label>
+        <label class="inventory-input">
+          <span class="field-label">Observação</span>
+          <input type="text" data-field="observacao" value="${escapeHtml(item.observacao || '')}" placeholder="Observação opcional">
+        </label>
         <span class="save-state muted"></span>
       </div>
     </article>

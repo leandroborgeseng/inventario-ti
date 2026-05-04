@@ -114,10 +114,11 @@
     </div>
 
     <section id="secretaria-view" class="hidden">
-      <details class="panel instructions-panel">
+      <details class="panel instructions-panel" open>
         <summary>Orientação para identificar o nome da máquina, IP e número de série do computador</summary>
         <div class="instructions-content">
           <p>Antes de preencher o sistema, verifique primeiro se essas informações já estão disponíveis no próprio computador.</p>
+          <p class="command-hint">Para achar o número de série, abra o CMD e execute: <code>wmic bios get serialnumber</code></p>
 
           <h3>1. Primeira forma - papel de parede</h3>
           <p>Em muitos computadores da Prefeitura, o nome da máquina e o IP já estão informados diretamente no papel de parede da área de trabalho, geralmente no canto superior direito da tela.</p>
@@ -129,7 +130,7 @@
           <p>Para identificar o IP, digite <strong>ipconfig</strong>, pressione <strong>Enter</strong> e procure por <strong>Endereço IPv4</strong>.</p>
 
           <h3>3. Número de série da máquina</h3>
-          <p>No mesmo CMD, digite <strong>wmic bios get serialnumber</strong> e pressione <strong>Enter</strong>.</p>
+          <p>No mesmo CMD, digite <code>wmic bios get serialnumber</code> e pressione <strong>Enter</strong>.</p>
           <p>Copie o valor exibido abaixo de <strong>SerialNumber</strong> para preencher o número de série da máquina.</p>
 
           <h3>Atenção</h3>
