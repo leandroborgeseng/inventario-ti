@@ -293,6 +293,16 @@ select {
   width: 100%;
 }
 
+.search-row {
+  display: flex;
+  gap: 8px;
+}
+
+.search-row input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .filter-btn.active {
   background: var(--azul);
   color: var(--branco);
@@ -432,7 +442,13 @@ select {
   }
 
   .actions-row button,
-  .actions-row input {
+  .actions-row input,
+  .search-row button,
+  .search-row input {
     width: 100%;
+  }
+
+  .search-row {
+    flex-wrap: wrap;
   }
 }

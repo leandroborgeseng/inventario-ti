@@ -182,13 +182,13 @@ app.get('/api/secretarias/:secretaria/computadores', requireAuth, requirePasswor
   const isAdmin = req.session.user.perfil === 'admin';
   const hasBusca = Boolean(String(busca || '').trim());
 
-  if (isAdmin) {
-    params.push(secretaria);
-    where.push(`secretaria = $${params.length}`);
-  } else if (hasBusca) {
+  if (hasBusca) {
     // A busca por placa patrimonial precisa consultar a base inteira.
     params.push(`%${String(busca).trim()}%`);
     where.push(`placa ILIKE $${params.length}`);
+  } else if (isAdmin) {
+    params.push(secretaria);
+    where.push(`secretaria = $${params.length}`);
   } else {
     if (secretaria === req.session.user.secretaria) {
       params.push(req.session.user.secretaria);

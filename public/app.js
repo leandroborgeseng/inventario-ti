@@ -37,6 +37,7 @@ const elements = {
   computerList: document.getElementById('computer-list'),
   setorFilter: document.getElementById('setor-filter'),
   patrimonioSearch: document.getElementById('patrimonio-search'),
+  patrimonioSearchButton: document.getElementById('patrimonio-search-button'),
   setorFilterCount: document.getElementById('setor-filter-count'),
   adminUsersPanel: document.getElementById('admin-users-panel'),
   adminUsersList: document.getElementById('admin-users-list'),
@@ -135,7 +136,17 @@ function bindEvents() {
     await loadComputadores();
   });
 
-  elements.patrimonioSearch.addEventListener('input', debounce(async () => {
+  elements.patrimonioSearchButton.addEventListener('click', runPatrimonioSearch);
+  elements.patrimonioSearch.addEventListener('keydown', async (event) => {
+    if (event.key !== 'Enter') {
+      return;
+    }
+
+    event.preventDefault();
+    await runPatrimonioSearch();
+  });
+
+  elements.patrimonioSearch.addEventListener('search', debounce(async () => {
     currentSearch = elements.patrimonioSearch.value.trim();
     await loadComputadores();
   }, 250));
@@ -339,6 +350,11 @@ async function loadComputadores() {
   const data = await api(`/api/secretarias/${encodeURIComponent(currentSecretaria)}/computadores?${params}`);
   currentComputadores = data.computadores;
   renderSecretaria();
+}
+
+async function runPatrimonioSearch() {
+  currentSearch = elements.patrimonioSearch.value.trim();
+  await loadComputadores();
 }
 
 function renderSecretaria() {
