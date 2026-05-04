@@ -361,7 +361,7 @@ async function runPatrimonioSearch() {
 }
 
 function showExternalSecretariaAlert() {
-  const externalComputers = currentComputadores.filter((item) => item.fora_secretaria);
+  const externalComputers = currentComputadores.filter(isExternalSecretaria);
   if (!currentSearch || !externalComputers.length) {
     return;
   }
@@ -396,8 +396,8 @@ function renderSecretaria() {
     return;
   }
 
-  const ownComputers = currentComputadores.filter((item) => !item.fora_secretaria);
-  const externalComputers = currentComputadores.filter((item) => item.fora_secretaria);
+  const ownComputers = currentComputadores.filter((item) => !isExternalSecretaria(item));
+  const externalComputers = currentComputadores.filter(isExternalSecretaria);
   const sections = [];
 
   if (ownComputers.length) {
@@ -418,12 +418,12 @@ function renderSecretaria() {
 }
 
 function renderComputerCard(item) {
-  const statusClass = item.fora_secretaria
+  const statusClass = isExternalSecretaria(item)
     ? 'external-secretaria'
     : item.status_inventario ? item.status_inventario.toLowerCase() : 'pendente';
   const presentActive = item.status_inventario === STATUS.PRESENTE ? 'aria-pressed="true"' : '';
   const absentActive = item.status_inventario === STATUS.AUSENTE ? 'aria-pressed="true"' : '';
-  const otherSecretariaWarning = item.fora_secretaria
+  const otherSecretariaWarning = isExternalSecretaria(item)
     ? `<div class="warning-box">Localizado em outra secretaria: <strong>${escapeHtml(item.secretaria)}</strong>. Você pode preencher as informações; depois ele continuará aparecendo para sua secretaria em uma seção separada.</div>`
     : '';
 
@@ -533,6 +533,10 @@ function escapeHtml(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+function isExternalSecretaria(item) {
+  return item.fora_secretaria === true || item.fora_secretaria === 'true';
 }
 
 function debounce(callback, delay) {

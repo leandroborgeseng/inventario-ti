@@ -179,14 +179,13 @@ app.get('/api/secretarias/:secretaria/computadores', requireAuth, requirePasswor
   const { status, setor, busca } = req.query;
   const params = [];
   const where = [];
-  const isAdmin = req.session.user.perfil === 'admin';
   const hasBusca = Boolean(String(busca || '').trim());
 
   if (hasBusca) {
     // A busca por placa patrimonial precisa consultar a base inteira.
     params.push(`%${String(busca).trim()}%`);
     where.push(`placa ILIKE $${params.length}`);
-  } else if (isAdmin) {
+  } else if (req.session.user.perfil === 'admin') {
     params.push(secretaria);
     where.push(`secretaria = $${params.length}`);
   } else {
@@ -232,17 +231,14 @@ app.get('/api/secretarias/:secretaria/computadores', requireAuth, requirePasswor
       observacao,
       atualizado_em,
       preenchido_por_secretaria,
-      CASE
-        WHEN $${params.length + 1}::text IS NULL THEN false
-        ELSE secretaria <> $${params.length + 1}
-      END AS fora_secretaria
+      secretaria <> $${params.length + 1} AS fora_secretaria
     FROM computadores
     WHERE ${where.join(' AND ')}
     ORDER BY
       CASE WHEN status_inventario IS NULL THEN 0 ELSE 1 END,
       setor NULLS LAST,
       placa`,
-    [...params, isAdmin ? null : req.session.user.secretaria]
+    [...params, secretaria]
   );
 
   res.json({ computadores: result.rows });
