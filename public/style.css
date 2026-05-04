@@ -327,6 +327,23 @@ select {
   background: var(--amarelo);
 }
 
+.computer-card.external-secretaria {
+  background: #fff8df;
+  border-left-color: #d38b00;
+}
+
+.external-section {
+  background: var(--branco);
+  border: 1px dashed #d38b00;
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.external-section h3 {
+  color: var(--azul);
+  margin: 0 0 4px;
+}
+
 .warning-box {
   margin-bottom: 12px;
   padding: 10px 12px;

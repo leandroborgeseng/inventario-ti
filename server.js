@@ -190,10 +190,15 @@ app.get('/api/secretarias/:secretaria/computadores', requireAuth, requirePasswor
     params.push(`%${String(busca).trim()}%`);
     where.push(`placa ILIKE $${params.length}`);
   } else {
-    params.push(secretaria);
-    where.push(`secretaria = $${params.length}`);
-    params.push(req.session.user.secretaria);
-    where.push(`(secretaria = $${params.length} OR preenchido_por_secretaria = $${params.length})`);
+    if (secretaria === req.session.user.secretaria) {
+      params.push(req.session.user.secretaria);
+      where.push(`(secretaria = $${params.length} OR preenchido_por_secretaria = $${params.length})`);
+    } else {
+      params.push(secretaria);
+      where.push(`secretaria = $${params.length}`);
+      params.push(req.session.user.secretaria);
+      where.push(`preenchido_por_secretaria = $${params.length}`);
+    }
   }
 
   if (!hasBusca && status === 'pendentes') {

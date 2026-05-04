@@ -362,15 +362,35 @@ function renderSecretaria() {
     return;
   }
 
-  elements.computerList.innerHTML = currentComputadores.map((item) => renderComputerCard(item)).join('');
+  const ownComputers = currentComputadores.filter((item) => !item.fora_secretaria);
+  const externalComputers = currentComputadores.filter((item) => item.fora_secretaria);
+  const sections = [];
+
+  if (ownComputers.length) {
+    sections.push(ownComputers.map((item) => renderComputerCard(item)).join(''));
+  }
+
+  if (externalComputers.length) {
+    sections.push(`
+      <div class="external-section">
+        <h3>Patrimônios localizados em outra secretaria</h3>
+        <p class="muted">Esses equipamentos foram encontrados pela pesquisa global ou já foram preenchidos por esta secretaria.</p>
+      </div>
+      ${externalComputers.map((item) => renderComputerCard(item)).join('')}
+    `);
+  }
+
+  elements.computerList.innerHTML = sections.join('');
 }
 
 function renderComputerCard(item) {
-  const statusClass = item.status_inventario ? item.status_inventario.toLowerCase() : 'pendente';
+  const statusClass = item.fora_secretaria
+    ? 'external-secretaria'
+    : item.status_inventario ? item.status_inventario.toLowerCase() : 'pendente';
   const presentActive = item.status_inventario === STATUS.PRESENTE ? 'aria-pressed="true"' : '';
   const absentActive = item.status_inventario === STATUS.AUSENTE ? 'aria-pressed="true"' : '';
   const otherSecretariaWarning = item.fora_secretaria
-    ? `<div class="warning-box">Atenção: este patrimônio está cadastrado em outra secretaria: <strong>${escapeHtml(item.secretaria)}</strong>. Você pode preencher as informações; depois ele continuará aparecendo para sua secretaria.</div>`
+    ? `<div class="warning-box">Localizado em outra secretaria: <strong>${escapeHtml(item.secretaria)}</strong>. Você pode preencher as informações; depois ele continuará aparecendo para sua secretaria em uma seção separada.</div>`
     : '';
 
   return `
