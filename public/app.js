@@ -10,6 +10,7 @@ let currentFilter = 'todos';
 let currentSetorFilter = 'todos';
 let currentSearch = '';
 let currentComputadores = [];
+let lastExternalAlertKey = '';
 
 const elements = {
   subtitle: document.getElementById('app-subtitle'),
@@ -349,12 +350,29 @@ async function loadComputadores() {
   });
   const data = await api(`/api/secretarias/${encodeURIComponent(currentSecretaria)}/computadores?${params}`);
   currentComputadores = data.computadores;
+  showExternalSecretariaAlert();
   renderSecretaria();
 }
 
 async function runPatrimonioSearch() {
   currentSearch = elements.patrimonioSearch.value.trim();
+  lastExternalAlertKey = '';
   await loadComputadores();
+}
+
+function showExternalSecretariaAlert() {
+  const externalComputers = currentComputadores.filter((item) => item.fora_secretaria);
+  if (!currentSearch || !externalComputers.length) {
+    return;
+  }
+
+  const alertKey = externalComputers.map((item) => item.placa).join('|');
+  if (alertKey === lastExternalAlertKey) {
+    return;
+  }
+
+  lastExternalAlertKey = alertKey;
+  window.alert('Patrimônio localizado em outra secretaria. O card ficará destacado em vermelho forte, mas você pode preencher as informações.');
 }
 
 function renderSecretaria() {

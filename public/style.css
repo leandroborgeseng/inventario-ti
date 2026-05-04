@@ -338,8 +338,9 @@ select {
 }
 
 .computer-card.external-secretaria {
-  background: #fff8df;
-  border-left-color: #d38b00;
+  background: #ffd6d6;
+  border-color: #a83232;
+  border-left-color: #a83232;
 }
 
 .external-section {
@@ -357,10 +358,10 @@ select {
 .warning-box {
   margin-bottom: 12px;
   padding: 10px 12px;
-  border: 1px solid #f0c45a;
+  border: 1px solid #a83232;
   border-radius: 10px;
-  background: #fff8df;
-  color: #6f4e00;
+  background: #fdeaea;
+  color: #7f1d1d;
 }
 
 .computer-main {
