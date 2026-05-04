@@ -67,9 +67,11 @@ async function main() {
           secretaria,
           status_inventario,
           numero_serie,
+          nome_maquina,
+          ip_maquina,
           observacao
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         ON CONFLICT (placa) DO UPDATE SET
           bem_patrimonial = EXCLUDED.bem_patrimonial,
           setor = EXCLUDED.setor,
@@ -85,6 +87,8 @@ async function main() {
           secretaria,
           computador.status_inventario || null,
           computador.numero_serie || '',
+          computador.nome_maquina || '',
+          computador.ip_maquina || '',
           computador.observacao || ''
         ]
       );

@@ -8,6 +8,7 @@ let secretarias = [];
 let currentSecretaria = null;
 let currentFilter = 'todos';
 let currentSetorFilter = 'todos';
+let currentSearch = '';
 let currentComputadores = [];
 
 const elements = {
@@ -35,6 +36,7 @@ const elements = {
   secretariaProgressBar: document.getElementById('secretaria-progress-bar'),
   computerList: document.getElementById('computer-list'),
   setorFilter: document.getElementById('setor-filter'),
+  patrimonioSearch: document.getElementById('patrimonio-search'),
   setorFilterCount: document.getElementById('setor-filter-count'),
   adminUsersPanel: document.getElementById('admin-users-panel'),
   adminUsersList: document.getElementById('admin-users-list'),
@@ -113,6 +115,7 @@ function bindEvents() {
     await api('/api/logout', { method: 'POST' });
     currentUser = null;
     currentSecretaria = null;
+    currentSearch = '';
     secretarias = [];
     currentComputadores = [];
     elements.changePasswordForm.reset();
@@ -123,6 +126,7 @@ function bindEvents() {
     currentSecretaria = null;
     currentFilter = 'todos';
     currentSetorFilter = 'todos';
+    currentSearch = '';
     renderHome();
   });
 
@@ -130,6 +134,11 @@ function bindEvents() {
     currentSetorFilter = elements.setorFilter.value;
     await loadComputadores();
   });
+
+  elements.patrimonioSearch.addEventListener('input', debounce(async () => {
+    currentSearch = elements.patrimonioSearch.value.trim();
+    await loadComputadores();
+  }, 250));
 
   elements.filterButtons.forEach((button) => {
     button.addEventListener('click', async () => {
@@ -146,18 +155,14 @@ function bindEvents() {
     }
 
     const card = button.closest('.computer-card');
-    const serialInput = card.querySelector('input[data-field="numero_serie"]');
+    const machineNameInput = card.querySelector('input[data-field="nome_maquina"]');
+    const machineIpInput = card.querySelector('input[data-field="ip_maquina"]');
     const observationInput = card.querySelector('input[data-field="observacao"]');
-
-    if (button.dataset.status === STATUS.PRESENTE && !serialInput.value.trim()) {
-      window.alert('Informe o número de série antes de marcar como PRESENTE.');
-      serialInput.focus();
-      return;
-    }
 
     await saveComputer(button.dataset.id, {
       status_inventario: button.dataset.status,
-      numero_serie: button.dataset.status === STATUS.PRESENTE ? serialInput.value.trim() : '',
+      nome_maquina: machineNameInput.value,
+      ip_maquina: machineIpInput.value,
       observacao: observationInput.value
     }, card);
   });
@@ -170,22 +175,14 @@ function bindEvents() {
 
     const card = input.closest('.computer-card');
     const status = card.dataset.status || null;
-    const serialInput = card.querySelector('input[data-field="numero_serie"]');
+    const machineNameInput = card.querySelector('input[data-field="nome_maquina"]');
+    const machineIpInput = card.querySelector('input[data-field="ip_maquina"]');
     const observationInput = card.querySelector('input[data-field="observacao"]');
-
-    if (input.dataset.field === 'numero_serie' && status !== STATUS.PRESENTE) {
-      return;
-    }
-
-    if (status === STATUS.PRESENTE && !serialInput.value.trim()) {
-      window.alert('Informe o número de série para manter este computador como PRESENTE.');
-      serialInput.focus();
-      return;
-    }
 
     await saveComputer(card.dataset.id, {
       status_inventario: status,
-      numero_serie: status === STATUS.PRESENTE ? serialInput.value.trim() : '',
+      nome_maquina: machineNameInput.value,
+      ip_maquina: machineIpInput.value,
       observacao: observationInput.value
     }, card);
   });
@@ -315,6 +312,8 @@ async function openSecretaria(nome) {
   currentSecretaria = nome;
   currentFilter = 'todos';
   currentSetorFilter = 'todos';
+  currentSearch = '';
+  elements.patrimonioSearch.value = '';
   elements.filterButtons.forEach((button) => {
     button.classList.toggle('active', button.dataset.filter === currentFilter);
   });
@@ -334,7 +333,8 @@ async function loadSetores() {
 async function loadComputadores() {
   const params = new URLSearchParams({
     status: currentFilter,
-    setor: currentSetorFilter
+    setor: currentSetorFilter,
+    busca: currentSearch
   });
   const data = await api(`/api/secretarias/${encodeURIComponent(currentSecretaria)}/computadores?${params}`);
   currentComputadores = data.computadores;
@@ -369,9 +369,13 @@ function renderComputerCard(item) {
   const statusClass = item.status_inventario ? item.status_inventario.toLowerCase() : 'pendente';
   const presentActive = item.status_inventario === STATUS.PRESENTE ? 'aria-pressed="true"' : '';
   const absentActive = item.status_inventario === STATUS.AUSENTE ? 'aria-pressed="true"' : '';
+  const otherSecretariaWarning = item.fora_secretaria
+    ? `<div class="warning-box">Atenção: este patrimônio está cadastrado em outra secretaria: <strong>${escapeHtml(item.secretaria)}</strong>. Você pode preencher as informações; depois ele continuará aparecendo para sua secretaria.</div>`
+    : '';
 
   return `
     <article class="computer-card ${statusClass}" data-id="${item.id}" data-status="${escapeHtml(item.status_inventario || '')}">
+      ${otherSecretariaWarning}
       <div class="computer-main">
         <div>
           <span class="field-label">Placa patrimonial</span>
@@ -398,14 +402,19 @@ function renderComputerCard(item) {
           <span class="field-value">${escapeHtml(item.status_inventario || 'PENDENTE')}</span>
         </div>
         <div>
-          <span class="field-label">Número de série</span>
-          <span class="field-value">${escapeHtml(item.numero_serie || 'Não informado')}</span>
+          <span class="field-label">Nome da máquina</span>
+          <span class="field-value">${escapeHtml(item.nome_maquina || 'Não informado')}</span>
+        </div>
+        <div>
+          <span class="field-label">IP da máquina</span>
+          <span class="field-value">${escapeHtml(item.ip_maquina || 'Não informado')}</span>
         </div>
       </div>
       <div class="actions-row">
         <button class="btn-present" type="button" data-id="${item.id}" data-status="${STATUS.PRESENTE}" ${presentActive}>PRESENTE</button>
         <button class="btn-absent" type="button" data-id="${item.id}" data-status="${STATUS.AUSENTE}" ${absentActive}>AUSENTE</button>
-        <input type="text" data-field="numero_serie" value="${escapeHtml(item.numero_serie || '')}" placeholder="Coloque o número de série aqui (obrigatório)">
+        <input type="text" data-field="nome_maquina" value="${escapeHtml(item.nome_maquina || '')}" placeholder="Nome da Máquina">
+        <input type="text" data-field="ip_maquina" value="${escapeHtml(item.ip_maquina || '')}" placeholder="IP da Máquina">
         <input type="text" data-field="observacao" value="${escapeHtml(item.observacao || '')}" placeholder="Observação opcional">
         <span class="save-state muted"></span>
       </div>
@@ -470,4 +479,12 @@ function escapeHtml(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+function debounce(callback, delay) {
+  let timeoutId;
+  return (...args) => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => callback(...args), delay);
+  };
 }

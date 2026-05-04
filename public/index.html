@@ -82,6 +82,24 @@
     </section>
 
     <section id="secretaria-view" class="hidden">
+      <details class="panel instructions-panel">
+        <summary>Orientação para identificar o nome da máquina e o IP do computador</summary>
+        <div class="instructions-content">
+          <p>Antes de preencher o sistema, verifique primeiro se essas informações já estão disponíveis no próprio computador.</p>
+
+          <h3>1. Primeira forma - papel de parede</h3>
+          <p>Em muitos computadores da Prefeitura, o nome da máquina e o IP já estão informados diretamente no papel de parede da área de trabalho, geralmente no canto superior direito da tela.</p>
+          <p>Se estiverem visíveis, copie corretamente o <strong>Nome da máquina</strong> e o <strong>IP da máquina</strong>.</p>
+
+          <h3>2. Segunda forma - pelo CMD</h3>
+          <p>Pressione <strong>Windows + R</strong>, digite <strong>cmd</strong> e pressione <strong>Enter</strong>.</p>
+          <p>Para identificar o nome da máquina, digite <strong>hostname</strong> e pressione <strong>Enter</strong>.</p>
+          <p>Para identificar o IP, digite <strong>ipconfig</strong>, pressione <strong>Enter</strong> e procure por <strong>Endereço IPv4</strong>.</p>
+
+          <h3>Atenção</h3>
+          <p>Preencha exatamente como aparece. Não altere patrimônios já preenchidos por outro usuário. Caso não localize o patrimônio na Secretaria e Setor filtrados, limpe os filtros e pesquise novamente apenas pelo número do patrimônio.</p>
+        </div>
+      </details>
       <div class="panel">
         <div class="status-line">
           <div>
@@ -103,6 +121,8 @@
           <select id="setor-filter">
             <option value="todos">Todos os setores</option>
           </select>
+          <label class="field-label" for="patrimonio-search">Pesquisar por patrimônio</label>
+          <input id="patrimonio-search" type="search" placeholder="Digite o número do patrimônio">
           <p id="setor-filter-count" class="muted"></p>
         </div>
       </div>

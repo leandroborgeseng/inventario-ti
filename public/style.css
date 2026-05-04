@@ -184,6 +184,28 @@ select {
   width: 100%;
 }
 
+.instructions-panel {
+  margin-bottom: 16px;
+}
+
+.instructions-panel summary {
+  color: var(--azul);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.instructions-content {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.instructions-content h3 {
+  color: var(--azul);
+  font-size: 1rem;
+  margin: 8px 0 0;
+}
+
 .badge {
   display: inline-block;
   margin-top: 4px;
@@ -303,6 +325,15 @@ select {
 
 .computer-card.pendente {
   background: var(--amarelo);
+}
+
+.warning-box {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid #f0c45a;
+  border-radius: 10px;
+  background: #fff8df;
+  color: #6f4e00;
 }
 
 .computer-main {

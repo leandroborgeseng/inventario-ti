@@ -148,7 +148,7 @@ app.get('/api/secretarias', requireAuth, requirePasswordReady, async (req, res) 
 
   if (req.session.user.perfil !== 'admin') {
     params.push(req.session.user.secretaria);
-    where = 'WHERE secretaria = $1';
+    where = 'WHERE secretaria = $1 OR preenchido_por_secretaria = $1';
   }
 
   const result = await query(
@@ -174,23 +174,39 @@ app.get('/api/secretarias', requireAuth, requirePasswordReady, async (req, res) 
   });
 });
 
-app.get('/api/secretarias/:secretaria/computadores', requireAuth, requirePasswordReady, canAccessSecretariaParam, async (req, res) => {
+app.get('/api/secretarias/:secretaria/computadores', requireAuth, requirePasswordReady, async (req, res) => {
   const { secretaria } = req.params;
-  const { status, setor } = req.query;
-  const params = [secretaria];
-  const where = ['secretaria = $1'];
+  const { status, setor, busca } = req.query;
+  const params = [];
+  const where = [];
+  const isAdmin = req.session.user.perfil === 'admin';
+  const hasBusca = Boolean(String(busca || '').trim());
 
-  if (status === 'pendentes') {
+  if (isAdmin) {
+    params.push(secretaria);
+    where.push(`secretaria = $${params.length}`);
+  } else if (hasBusca) {
+    // A busca por placa patrimonial precisa consultar a base inteira.
+    params.push(`%${String(busca).trim()}%`);
+    where.push(`placa ILIKE $${params.length}`);
+  } else {
+    params.push(secretaria);
+    where.push(`secretaria = $${params.length}`);
+    params.push(req.session.user.secretaria);
+    where.push(`(secretaria = $${params.length} OR preenchido_por_secretaria = $${params.length})`);
+  }
+
+  if (!hasBusca && status === 'pendentes') {
     where.push('status_inventario IS NULL');
-  } else if (status === 'presentes') {
+  } else if (!hasBusca && status === 'presentes') {
     params.push('PRESENTE');
     where.push(`status_inventario = $${params.length}`);
-  } else if (status === 'ausentes') {
+  } else if (!hasBusca && status === 'ausentes') {
     params.push('AUSENTE');
     where.push(`status_inventario = $${params.length}`);
   }
 
-  if (setor && setor !== 'todos') {
+  if (!hasBusca && setor && setor !== 'todos') {
     params.push(setor);
     where.push(`COALESCE(NULLIF(TRIM(setor), ''), 'Sem setor') = $${params.length}`);
   }
@@ -206,28 +222,44 @@ app.get('/api/secretarias/:secretaria/computadores', requireAuth, requirePasswor
       secretaria,
       status_inventario,
       numero_serie,
+      nome_maquina,
+      ip_maquina,
       observacao,
-      atualizado_em
+      atualizado_em,
+      preenchido_por_secretaria,
+      CASE
+        WHEN $${params.length + 1}::text IS NULL THEN false
+        ELSE secretaria <> $${params.length + 1}
+      END AS fora_secretaria
     FROM computadores
     WHERE ${where.join(' AND ')}
     ORDER BY
       CASE WHEN status_inventario IS NULL THEN 0 ELSE 1 END,
       setor NULLS LAST,
       placa`,
-    params
+    [...params, isAdmin ? null : req.session.user.secretaria]
   );
 
   res.json({ computadores: result.rows });
 });
 
-app.get('/api/secretarias/:secretaria/setores', requireAuth, requirePasswordReady, canAccessSecretariaParam, async (req, res) => {
+app.get('/api/secretarias/:secretaria/setores', requireAuth, requirePasswordReady, async (req, res) => {
+  const params = [req.params.secretaria];
+  let visibility = '';
+
+  if (req.session.user.perfil !== 'admin') {
+    params.push(req.session.user.secretaria);
+    visibility = 'AND (secretaria = $2 OR preenchido_por_secretaria = $2)';
+  }
+
   const result = await query(
     `SELECT COALESCE(NULLIF(TRIM(setor), ''), 'Sem setor') AS setor
      FROM computadores
      WHERE secretaria = $1
+     ${visibility}
      GROUP BY 1
      ORDER BY 1`,
-    [req.params.secretaria]
+    params
   );
 
   res.json({ setores: result.rows.map((row) => row.setor) });
@@ -235,7 +267,12 @@ app.get('/api/secretarias/:secretaria/setores', requireAuth, requirePasswordRead
 
 app.patch('/api/computadores/:id', requireAuth, requirePasswordReady, async (req, res) => {
   const id = Number(req.params.id);
-  const { status_inventario, numero_serie = '', observacao = '' } = req.body || {};
+  const {
+    status_inventario,
+    nome_maquina = '',
+    ip_maquina = '',
+    observacao = ''
+  } = req.body || {};
 
   if (!Number.isInteger(id)) {
     return res.status(400).json({ error: 'Computador inválido.' });
@@ -243,10 +280,6 @@ app.patch('/api/computadores/:id', requireAuth, requirePasswordReady, async (req
 
   if (status_inventario !== null && !STATUS_VALIDOS.has(status_inventario)) {
     return res.status(400).json({ error: 'Status inválido.' });
-  }
-
-  if (status_inventario === 'PRESENTE' && !String(numero_serie).trim()) {
-    return res.status(400).json({ error: 'Informe o número de série para marcar como PRESENTE.' });
   }
 
   const client = await pool.connect();
@@ -267,22 +300,28 @@ app.patch('/api/computadores/:id', requireAuth, requirePasswordReady, async (req
       return res.status(404).json({ error: 'Computador não encontrado.' });
     }
 
-    if (!canAccessSecretaria(req.session.user, current.secretaria)) {
+    if (!canUpdateComputer(req.session.user, current)) {
       await client.query('ROLLBACK');
       return res.status(403).json({ error: 'Acesso negado para esta secretaria.' });
     }
 
-    const novoNumeroSerie = status_inventario === 'PRESENTE' ? String(numero_serie).trim() : '';
+    const preenchidoPorSecretaria = req.session.user.perfil === 'secretaria'
+      ? req.session.user.secretaria
+      : current.preenchido_por_secretaria;
+    const novoNomeMaquina = String(nome_maquina || '').trim();
+    const novoIpMaquina = String(ip_maquina || '').trim();
     const novaObservacao = String(observacao || '').trim();
 
     const updatedResult = await client.query(
       `UPDATE computadores
        SET status_inventario = $1,
-           numero_serie = $2,
-           observacao = $3,
-           atualizado_por = $4,
+           nome_maquina = $2,
+           ip_maquina = $3,
+           observacao = $4,
+           preenchido_por_secretaria = $5,
+           atualizado_por = $6,
            atualizado_em = now()
-       WHERE id = $5
+       WHERE id = $7
        RETURNING
          id,
          placa,
@@ -293,9 +332,12 @@ app.patch('/api/computadores/:id', requireAuth, requirePasswordReady, async (req
          secretaria,
          status_inventario,
          numero_serie,
+         nome_maquina,
+         ip_maquina,
          observacao,
-         atualizado_em`,
-      [status_inventario, novoNumeroSerie, novaObservacao, req.session.user.id, id]
+         atualizado_em,
+         preenchido_por_secretaria`,
+      [status_inventario, novoNomeMaquina, novoIpMaquina, novaObservacao, preenchidoPorSecretaria, req.session.user.id, id]
     );
 
     await client.query(
@@ -306,17 +348,25 @@ app.patch('/api/computadores/:id', requireAuth, requirePasswordReady, async (req
         status_novo,
         numero_serie_anterior,
         numero_serie_novo,
+        nome_maquina_anterior,
+        nome_maquina_novo,
+        ip_maquina_anterior,
+        ip_maquina_novo,
         observacao_anterior,
         observacao_nova
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
       [
         id,
         req.session.user.id,
         current.status_inventario,
         status_inventario,
         current.numero_serie || '',
-        novoNumeroSerie,
+        current.numero_serie || '',
+        current.nome_maquina || '',
+        novoNomeMaquina,
+        current.ip_maquina || '',
+        novoIpMaquina,
         current.observacao || '',
         novaObservacao
       ]
@@ -339,7 +389,7 @@ app.get('/api/exportar', requireAuth, requirePasswordReady, async (req, res) => 
 
   if (req.session.user.perfil !== 'admin') {
     params.push(req.session.user.secretaria);
-    where = 'WHERE c.secretaria = $1';
+    where = 'WHERE c.secretaria = $1 OR c.preenchido_por_secretaria = $1';
   }
 
   const result = await query(
@@ -352,7 +402,10 @@ app.get('/api/exportar', requireAuth, requirePasswordReady, async (req, res) => 
       c.secretaria,
       c.status_inventario,
       c.numero_serie,
+      c.nome_maquina,
+      c.ip_maquina,
       c.observacao,
+      c.preenchido_por_secretaria,
       c.atualizado_em,
       u.usuario AS atualizado_por_usuario,
       u.nome AS atualizado_por_nome
@@ -377,7 +430,10 @@ app.get('/api/exportar', requireAuth, requirePasswordReady, async (req, res) => 
       conservacao: row.conservacao,
       status_inventario: row.status_inventario,
       numero_serie: row.numero_serie || '',
+      nome_maquina: row.nome_maquina || '',
+      ip_maquina: row.ip_maquina || '',
       observacao: row.observacao || '',
+      preenchido_por_secretaria: row.preenchido_por_secretaria || null,
       atualizado_por_usuario: row.atualizado_por_usuario || null,
       atualizado_por_nome: row.atualizado_por_nome || null,
       atualizado_em: row.atualizado_em
@@ -444,15 +500,8 @@ function requireAdmin(req, res, next) {
   return next();
 }
 
-function canAccessSecretariaParam(req, res, next) {
-  if (!canAccessSecretaria(req.session.user, req.params.secretaria)) {
-    return res.status(403).json({ error: 'Acesso negado para esta secretaria.' });
-  }
-  return next();
-}
-
-function canAccessSecretaria(user, secretaria) {
-  return user.perfil === 'admin' || user.secretaria === secretaria;
+function canUpdateComputer(user) {
+  return user.perfil === 'admin' || user.perfil === 'secretaria';
 }
 
 function sanitizeUser(user) {
