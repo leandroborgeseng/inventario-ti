@@ -11,6 +11,8 @@ let currentSetorFilter = 'todos';
 let currentSearch = '';
 let currentComputadores = [];
 let lastExternalAlertKey = '';
+let adminUsers = [];
+let selectedAdminUser = null;
 
 const elements = {
   subtitle: document.getElementById('app-subtitle'),
@@ -41,7 +43,15 @@ const elements = {
   patrimonioSearchButton: document.getElementById('patrimonio-search-button'),
   setorFilterCount: document.getElementById('setor-filter-count'),
   adminUsersPanel: document.getElementById('admin-users-panel'),
-  adminUsersList: document.getElementById('admin-users-list'),
+  adminUserSelect: document.getElementById('admin-user-select'),
+  adminResetHint: document.getElementById('admin-reset-hint'),
+  adminPasswordModal: document.getElementById('admin-password-modal'),
+  adminPasswordModalClose: document.getElementById('admin-password-modal-close'),
+  adminPasswordCancel: document.getElementById('admin-password-cancel'),
+  adminPasswordForm: document.getElementById('admin-password-form'),
+  adminPasswordTarget: document.getElementById('admin-password-target'),
+  adminTempPassword: document.getElementById('admin-temp-password'),
+  adminPasswordState: document.getElementById('admin-password-state'),
   filterButtons: document.querySelectorAll('.filter-btn')
 };
 
@@ -199,35 +209,56 @@ function bindEvents() {
     }, card);
   });
 
-  elements.adminUsersList.addEventListener('click', async (event) => {
-    const button = event.target.closest('button[data-reset-user-id]');
-    if (!button) {
+  elements.adminUserSelect.addEventListener('change', () => {
+    if (!elements.adminUserSelect.value) {
       return;
     }
 
-    const row = button.closest('.admin-user-row');
-    const input = row.querySelector('input[data-temp-password]');
-    const state = row.querySelector('.save-state');
-    const senhaTemporaria = input.value.trim();
+    openAdminPasswordModal(elements.adminUserSelect.value);
+  });
+
+  elements.adminPasswordForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    if (!selectedAdminUser) {
+      closeAdminPasswordModal();
+      return;
+    }
+
+    const senhaTemporaria = elements.adminTempPassword.value.trim();
 
     if (senhaTemporaria.length < 8) {
       window.alert('Informe uma senha temporária com pelo menos 8 caracteres.');
-      input.focus();
+      elements.adminTempPassword.focus();
       return;
     }
 
-    state.textContent = 'Resetando...';
+    elements.adminPasswordState.textContent = 'Resetando...';
     try {
-      await api(`/api/admin/users/${button.dataset.resetUserId}/reset-password`, {
+      await api(`/api/admin/users/${selectedAdminUser.id}/reset-password`, {
         method: 'PATCH',
         body: { senha_temporaria: senhaTemporaria }
       });
-      input.value = '';
-      state.textContent = 'Senha resetada';
+      const secretaria = selectedAdminUser.nome;
       await loadAdminUsers();
+      closeAdminPasswordModal();
+      elements.adminResetHint.textContent = `Senha temporária de ${secretaria} resetada. No próximo acesso, o usuário será obrigado a trocar.`;
     } catch (error) {
-      state.textContent = '';
+      elements.adminPasswordState.textContent = '';
       window.alert(error.message);
+    }
+  });
+
+  elements.adminPasswordModalClose.addEventListener('click', closeAdminPasswordModal);
+  elements.adminPasswordCancel.addEventListener('click', closeAdminPasswordModal);
+  elements.adminPasswordModal.addEventListener('click', (event) => {
+    if (event.target === elements.adminPasswordModal) {
+      closeAdminPasswordModal();
+    }
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !elements.adminPasswordModal.classList.contains('hidden')) {
+      closeAdminPasswordModal();
     }
   });
 }
@@ -275,6 +306,7 @@ function renderHome() {
   elements.globalProgress.textContent = `${verificados} / ${total} computadores verificados`;
   elements.exportHint.textContent = 'As alterações são salvas no banco imediatamente, com usuário e data.';
   elements.adminUsersPanel.classList.toggle('hidden', currentUser.perfil !== 'admin');
+  elements.adminUsersPanel.open = false;
 
   elements.secretariaGrid.innerHTML = secretarias.map((secretaria) => `
     <article class="secretaria-card" tabindex="0" role="button" data-secretaria="${escapeHtml(secretaria.secretaria)}">
@@ -301,23 +333,42 @@ function renderHome() {
 
 async function loadAdminUsers() {
   const data = await api('/api/admin/users');
-  elements.adminUsersList.innerHTML = data.users.map((user) => `
-    <div class="admin-user-row">
-      <div>
-        <strong>${escapeHtml(user.nome)}</strong>
-        <p class="muted">${escapeHtml(user.usuario)}</p>
-        <span class="badge">${user.must_change_password ? 'Troca obrigatória pendente' : 'Senha definida'}</span>
-      </div>
-      <label>
-        <span class="field-label">Senha temporária</span>
-        <input type="text" data-temp-password placeholder="Nova senha temporária">
-      </label>
-      <div>
-        <button class="btn-primary" type="button" data-reset-user-id="${user.id}">Resetar senha</button>
-        <span class="save-state muted"></span>
-      </div>
-    </div>
-  `).join('');
+  adminUsers = data.users;
+  elements.adminUserSelect.disabled = adminUsers.length === 0;
+  elements.adminUserSelect.innerHTML = [
+    '<option value="">Selecione uma secretaria</option>',
+    ...adminUsers.map((user) => `
+      <option value="${user.id}">
+        ${escapeHtml(user.nome)} (${escapeHtml(user.usuario)})${user.must_change_password ? ' - troca pendente' : ''}
+      </option>
+    `)
+  ].join('');
+
+  if (adminUsers.length === 0) {
+    elements.adminResetHint.textContent = 'Nenhum usuário de secretaria encontrado.';
+  }
+}
+
+function openAdminPasswordModal(userId) {
+  selectedAdminUser = adminUsers.find((user) => String(user.id) === String(userId));
+
+  if (!selectedAdminUser) {
+    return;
+  }
+
+  elements.adminPasswordForm.reset();
+  elements.adminPasswordState.textContent = '';
+  elements.adminPasswordTarget.textContent = `${selectedAdminUser.nome} (${selectedAdminUser.usuario})`;
+  elements.adminPasswordModal.classList.remove('hidden');
+  elements.adminTempPassword.focus();
+}
+
+function closeAdminPasswordModal() {
+  elements.adminPasswordModal.classList.add('hidden');
+  elements.adminPasswordForm.reset();
+  elements.adminPasswordState.textContent = '';
+  elements.adminUserSelect.value = '';
+  selectedAdminUser = null;
 }
 
 async function openSecretaria(nome) {

@@ -164,23 +164,30 @@ select {
   margin-top: 18px;
 }
 
-.admin-users-list {
-  display: grid;
-  gap: 10px;
+.admin-panel-summary {
+  color: var(--azul);
+  cursor: pointer;
+  font-weight: 700;
 }
 
-.admin-user-row {
+.admin-panel-summary span {
   display: grid;
-  grid-template-columns: minmax(220px, 1.5fr) minmax(190px, 1fr) auto;
-  gap: 10px;
-  align-items: end;
-  padding: 12px;
-  border: 1px solid var(--cinza-borda);
-  border-radius: 12px;
-  background: #fbfdff;
+  gap: 3px;
 }
 
-.admin-user-row input {
+.admin-panel-summary small {
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 400;
+}
+
+.admin-reset-controls {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.admin-reset-controls select {
   width: 100%;
 }
 
@@ -421,6 +428,51 @@ select {
   font-weight: 700;
 }
 
+.modal {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.48);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 20px;
+  position: fixed;
+  z-index: 30;
+}
+
+.modal-card {
+  background: var(--branco);
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  padding: 18px;
+  width: min(100%, 460px);
+}
+
+.modal-header {
+  align-items: flex-start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.modal-form {
+  display: grid;
+  gap: 12px;
+}
+
+.modal-form input {
+  width: 100%;
+}
+
+.modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
 @media (max-width: 760px) {
   .topbar {
     align-items: stretch;
@@ -438,12 +490,9 @@ select {
     grid-template-columns: 1fr;
   }
 
-  .admin-user-row {
-    grid-template-columns: 1fr;
-  }
-
   .actions-row button,
   .actions-row input,
+  .modal-actions button,
   .search-row button,
   .search-row input {
     width: 100%;
@@ -451,5 +500,18 @@ select {
 
   .search-row {
     flex-wrap: wrap;
+  }
+
+  .modal {
+    align-items: flex-end;
+    padding: 12px;
+  }
+
+  .modal-card {
+    width: 100%;
+  }
+
+  .modal-header {
+    display: grid;
   }
 }
