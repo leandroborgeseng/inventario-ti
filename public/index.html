@@ -115,7 +115,7 @@
 
     <section id="secretaria-view" class="hidden">
       <details class="panel instructions-panel">
-        <summary>Orientação para identificar o nome da máquina e o IP do computador</summary>
+        <summary>Orientação para identificar o nome da máquina, IP e número de série do computador</summary>
         <div class="instructions-content">
           <p>Antes de preencher o sistema, verifique primeiro se essas informações já estão disponíveis no próprio computador.</p>
 
@@ -127,6 +127,10 @@
           <p>Pressione <strong>Windows + R</strong>, digite <strong>cmd</strong> e pressione <strong>Enter</strong>.</p>
           <p>Para identificar o nome da máquina, digite <strong>hostname</strong> e pressione <strong>Enter</strong>.</p>
           <p>Para identificar o IP, digite <strong>ipconfig</strong>, pressione <strong>Enter</strong> e procure por <strong>Endereço IPv4</strong>.</p>
+
+          <h3>3. Número de série da máquina</h3>
+          <p>No mesmo CMD, digite <strong>wmic bios get serialnumber</strong> e pressione <strong>Enter</strong>.</p>
+          <p>Copie o valor exibido abaixo de <strong>SerialNumber</strong> para preencher o número de série da máquina.</p>
 
           <h3>Atenção</h3>
           <p>Preencha exatamente como aparece. Não altere patrimônios já preenchidos por outro usuário. Caso não localize o patrimônio na Secretaria e Setor filtrados, limpe os filtros e pesquise novamente apenas pelo número do patrimônio.</p>

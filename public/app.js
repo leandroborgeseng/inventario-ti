@@ -177,16 +177,13 @@ function bindEvents() {
     }
 
     const card = button.closest('.computer-card');
-    const machineNameInput = card.querySelector('input[data-field="nome_maquina"]');
-    const machineIpInput = card.querySelector('input[data-field="ip_maquina"]');
-    const observationInput = card.querySelector('input[data-field="observacao"]');
+    const payload = collectComputerPayload(card, button.dataset.status);
 
-    await saveComputer(button.dataset.id, {
-      status_inventario: button.dataset.status,
-      nome_maquina: machineNameInput.value,
-      ip_maquina: machineIpInput.value,
-      observacao: observationInput.value
-    }, card);
+    if (!payload) {
+      return;
+    }
+
+    await saveComputer(button.dataset.id, payload, card);
   });
 
   elements.computerList.addEventListener('change', async (event) => {
@@ -196,17 +193,13 @@ function bindEvents() {
     }
 
     const card = input.closest('.computer-card');
-    const status = card.dataset.status || null;
-    const machineNameInput = card.querySelector('input[data-field="nome_maquina"]');
-    const machineIpInput = card.querySelector('input[data-field="ip_maquina"]');
-    const observationInput = card.querySelector('input[data-field="observacao"]');
+    const payload = collectComputerPayload(card, card.dataset.status || null);
 
-    await saveComputer(card.dataset.id, {
-      status_inventario: status,
-      nome_maquina: machineNameInput.value,
-      ip_maquina: machineIpInput.value,
-      observacao: observationInput.value
-    }, card);
+    if (!payload) {
+      return;
+    }
+
+    await saveComputer(card.dataset.id, payload, card);
   });
 
   elements.adminUserSelect.addEventListener('change', () => {
@@ -514,10 +507,15 @@ function renderComputerCard(item) {
           <span class="field-label">IP da máquina</span>
           <span class="field-value">${escapeHtml(item.ip_maquina || 'Não informado')}</span>
         </div>
+        <div>
+          <span class="field-label">Número de série</span>
+          <span class="field-value">${escapeHtml(item.numero_serie || 'Não informado')}</span>
+        </div>
       </div>
       <div class="actions-row">
         <button class="btn-present" type="button" data-id="${item.id}" data-status="${STATUS.PRESENTE}" ${presentActive}>PRESENTE</button>
         <button class="btn-absent" type="button" data-id="${item.id}" data-status="${STATUS.AUSENTE}" ${absentActive}>AUSENTE</button>
+        <input type="text" data-field="numero_serie" value="${escapeHtml(item.numero_serie || '')}" placeholder="Número de série obrigatório" required>
         <input type="text" data-field="nome_maquina" value="${escapeHtml(item.nome_maquina || '')}" placeholder="Nome da Máquina">
         <input type="text" data-field="ip_maquina" value="${escapeHtml(item.ip_maquina || '')}" placeholder="IP da Máquina">
         <input type="text" data-field="observacao" value="${escapeHtml(item.observacao || '')}" placeholder="Observação opcional">
@@ -525,6 +523,28 @@ function renderComputerCard(item) {
       </div>
     </article>
   `;
+}
+
+function collectComputerPayload(card, status) {
+  const serialInput = card.querySelector('input[data-field="numero_serie"]');
+  const machineNameInput = card.querySelector('input[data-field="nome_maquina"]');
+  const machineIpInput = card.querySelector('input[data-field="ip_maquina"]');
+  const observationInput = card.querySelector('input[data-field="observacao"]');
+  const numeroSerie = serialInput.value.trim();
+
+  if (status && !numeroSerie) {
+    window.alert('Informe o número de série antes de marcar o computador.');
+    serialInput.focus();
+    return null;
+  }
+
+  return {
+    status_inventario: status,
+    numero_serie: numeroSerie,
+    nome_maquina: machineNameInput.value,
+    ip_maquina: machineIpInput.value,
+    observacao: observationInput.value
+  };
 }
 
 async function saveComputer(id, payload, card) {

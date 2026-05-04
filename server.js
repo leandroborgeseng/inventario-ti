@@ -270,6 +270,7 @@ app.patch('/api/computadores/:id', requireAuth, requirePasswordReady, async (req
   const id = Number(req.params.id);
   const {
     status_inventario,
+    numero_serie = '',
     nome_maquina = '',
     ip_maquina = '',
     observacao = ''
@@ -281,6 +282,12 @@ app.patch('/api/computadores/:id', requireAuth, requirePasswordReady, async (req
 
   if (status_inventario !== null && !STATUS_VALIDOS.has(status_inventario)) {
     return res.status(400).json({ error: 'Status inválido.' });
+  }
+
+  const novoNumeroSerie = String(numero_serie || '').trim();
+
+  if (status_inventario && !novoNumeroSerie) {
+    return res.status(400).json({ error: 'Informe o número de série antes de marcar o computador.' });
   }
 
   const client = await pool.connect();
@@ -316,13 +323,14 @@ app.patch('/api/computadores/:id', requireAuth, requirePasswordReady, async (req
     const updatedResult = await client.query(
       `UPDATE computadores
        SET status_inventario = $1,
-           nome_maquina = $2,
-           ip_maquina = $3,
-           observacao = $4,
-           preenchido_por_secretaria = $5,
-           atualizado_por = $6,
+           numero_serie = $2,
+           nome_maquina = $3,
+           ip_maquina = $4,
+           observacao = $5,
+           preenchido_por_secretaria = $6,
+           atualizado_por = $7,
            atualizado_em = now()
-       WHERE id = $7
+       WHERE id = $8
        RETURNING
          id,
          placa,
@@ -338,7 +346,7 @@ app.patch('/api/computadores/:id', requireAuth, requirePasswordReady, async (req
          observacao,
          atualizado_em,
          preenchido_por_secretaria`,
-      [status_inventario, novoNomeMaquina, novoIpMaquina, novaObservacao, preenchidoPorSecretaria, req.session.user.id, id]
+      [status_inventario, novoNumeroSerie, novoNomeMaquina, novoIpMaquina, novaObservacao, preenchidoPorSecretaria, req.session.user.id, id]
     );
 
     await client.query(
@@ -363,7 +371,7 @@ app.patch('/api/computadores/:id', requireAuth, requirePasswordReady, async (req
         current.status_inventario,
         status_inventario,
         current.numero_serie || '',
-        current.numero_serie || '',
+        novoNumeroSerie,
         current.nome_maquina || '',
         novoNomeMaquina,
         current.ip_maquina || '',

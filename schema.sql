@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS computadores (
 );
 
 ALTER TABLE computadores
+  ADD COLUMN IF NOT EXISTS numero_serie TEXT NOT NULL DEFAULT '',
   ADD COLUMN IF NOT EXISTS nome_maquina TEXT NOT NULL DEFAULT '',
   ADD COLUMN IF NOT EXISTS ip_maquina TEXT NOT NULL DEFAULT '',
   ADD COLUMN IF NOT EXISTS preenchido_por_secretaria TEXT;
@@ -64,6 +65,8 @@ CREATE TABLE IF NOT EXISTS historico_alteracoes (
 );
 
 ALTER TABLE historico_alteracoes
+  ADD COLUMN IF NOT EXISTS numero_serie_anterior TEXT,
+  ADD COLUMN IF NOT EXISTS numero_serie_novo TEXT,
   ADD COLUMN IF NOT EXISTS nome_maquina_anterior TEXT,
   ADD COLUMN IF NOT EXISTS nome_maquina_novo TEXT,
   ADD COLUMN IF NOT EXISTS ip_maquina_anterior TEXT,
