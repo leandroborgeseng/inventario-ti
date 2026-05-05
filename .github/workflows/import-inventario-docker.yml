@@ -1,0 +1,47 @@
+name: Importar inventário (Docker)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - inventario_computadores.json
+      - importar-json.js
+      - schema.sql
+      - db.js
+      - Dockerfile
+      - package.json
+      - package-lock.json
+      - .github/workflows/import-inventario-docker.yml
+
+jobs:
+  importar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build imagem de importação
+        run: docker build -t inventario-ti-import .
+
+      - name: Executar importação
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_SSL: ${{ vars.DATABASE_SSL }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          DEFAULT_SECRETARIA_PASSWORD: ${{ secrets.DEFAULT_SECRETARIA_PASSWORD }}
+          RESET_PASSWORDS: ${{ vars.RESET_PASSWORDS }}
+        run: |
+          if [ -z "${DATABASE_URL}" ]; then
+            echo "Configure o secret DATABASE_URL em Settings → Secrets → Actions neste repositório."
+            exit 1
+          fi
+          docker run --rm \
+            -e DATABASE_URL="${DATABASE_URL}" \
+            ${DATABASE_SSL:+-e DATABASE_SSL="${DATABASE_SSL}"} \
+            ${ADMIN_PASSWORD:+-e ADMIN_PASSWORD="${ADMIN_PASSWORD}"} \
+            ${DEFAULT_SECRETARIA_PASSWORD:+-e DEFAULT_SECRETARIA_PASSWORD="${DEFAULT_SECRETARIA_PASSWORD}"} \
+            ${RESET_PASSWORDS:+-e RESET_PASSWORDS="${RESET_PASSWORDS}"} \
+            inventario-ti-import

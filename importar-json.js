@@ -9,6 +9,28 @@ const SCHEMA_PATH = path.join(__dirname, 'schema.sql');
 const CREDENCIAIS_PATH = path.join(__dirname, 'usuarios_criados.json');
 const ATUALIZAR_SENHAS = process.env.RESET_PASSWORDS === 'true';
 
+function parseDataAquisicao(valor) {
+  if (!valor) {
+    return null;
+  }
+
+  const texto = String(valor).trim();
+  const formatoIso = /^(\d{4})-(\d{2})-(\d{2})$/;
+  const formatoBr = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+
+  if (formatoIso.test(texto)) {
+    return texto;
+  }
+
+  const matchBr = texto.match(formatoBr);
+  if (!matchBr) {
+    throw new Error(`Data de aquisição inválida: ${texto}`);
+  }
+
+  const [, dia, mes, ano] = matchBr;
+  return `${ano}-${mes}-${dia}`;
+}
+
 async function main() {
   const schema = await fs.readFile(SCHEMA_PATH, 'utf8');
   await query(schema);
@@ -61,6 +83,7 @@ async function main() {
         `INSERT INTO computadores (
           placa,
           bem_patrimonial,
+          tipo,
           setor,
           dt_aquisicao,
           conservacao,
@@ -71,18 +94,22 @@ async function main() {
           ip_maquina,
           observacao
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         ON CONFLICT (placa) DO UPDATE SET
           bem_patrimonial = EXCLUDED.bem_patrimonial,
+          tipo = EXCLUDED.tipo,
           setor = EXCLUDED.setor,
           dt_aquisicao = EXCLUDED.dt_aquisicao,
           conservacao = EXCLUDED.conservacao,
-          secretaria = EXCLUDED.secretaria`,
+          secretaria = EXCLUDED.secretaria,
+          numero_serie = COALESCE(NULLIF(computadores.numero_serie, ''), EXCLUDED.numero_serie),
+          observacao = COALESCE(NULLIF(computadores.observacao, ''), EXCLUDED.observacao)`,
         [
           computador.placa,
           computador.bem_patrimonial || '',
+          computador.tipo || '',
           computador.setor || '',
-          computador.dt_aquisicao || null,
+          parseDataAquisicao(computador.dt_aquisicao),
           computador.conservacao || '',
           secretaria,
           computador.status_inventario || null,

@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS computadores (
   id BIGSERIAL PRIMARY KEY,
   placa TEXT NOT NULL UNIQUE,
   bem_patrimonial TEXT NOT NULL,
+  tipo TEXT NOT NULL DEFAULT '',
   setor TEXT,
   dt_aquisicao DATE,
   conservacao TEXT,
@@ -37,6 +38,7 @@ CREATE TABLE IF NOT EXISTS computadores (
 );
 
 ALTER TABLE computadores
+  ADD COLUMN IF NOT EXISTS tipo TEXT NOT NULL DEFAULT '',
   ADD COLUMN IF NOT EXISTS numero_serie TEXT NOT NULL DEFAULT '',
   ADD COLUMN IF NOT EXISTS nome_maquina TEXT NOT NULL DEFAULT '',
   ADD COLUMN IF NOT EXISTS ip_maquina TEXT NOT NULL DEFAULT '',
