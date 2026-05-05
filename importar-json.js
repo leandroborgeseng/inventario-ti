@@ -4,14 +4,24 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const { pool, query } = require('./db');
 
-const INVENTARIO_PATH = path.join(__dirname, 'inventario_computadores.json');
 const SCHEMA_PATH = path.join(__dirname, 'schema.sql');
 const CREDENCIAIS_PATH = path.join(__dirname, 'usuarios_criados.json');
 const ATUALIZAR_SENHAS = process.env.RESET_PASSWORDS === 'true';
 
+/** CUIDADO: apaga usuários (admin incluído), computadores e histórico; recria só após importar de novo. */
+const IMPORT_RESET_DATABASE = process.env.IMPORT_RESET_DATABASE === 'true';
+
 /** Sobrescreve status físico no banco pelo JSON (usa null no JSON como “pendente”). */
 const REPLACE_STATUS_FROM_JSON =
   process.env.IMPORT_REPLACE_STATUS_FROM_JSON === 'true';
+
+function resolveInventarioPath() {
+  const nomeOuCaminho = process.env.INVENTARIO_JSON_PATH || 'inventario_computadores.json';
+
+  return path.isAbsolute(nomeOuCaminho)
+    ? nomeOuCaminho
+    : path.join(__dirname, nomeOuCaminho);
+}
 
 function parseDataAquisicao(valor) {
   if (!valor) {
@@ -62,6 +72,24 @@ function listaComputadoresSecretaria(secretariaNome, entrada) {
   return [];
 }
 
+async function limparTodosDados() {
+  await query(`
+    TRUNCATE TABLE
+      historico_alteracoes,
+      computadores,
+      usuarios
+    RESTART IDENTITY CASCADE`);
+
+  try {
+    await query('DELETE FROM session');
+    console.log('[importar] Sessões (tabela session) limpas.');
+  } catch (err) {
+    if (err.code !== '42P01') {
+      throw err;
+    }
+  }
+}
+
 async function main() {
   const dbUrl = typeof process.env.DATABASE_URL === 'string'
     ? process.env.DATABASE_URL.trim()
@@ -80,7 +108,18 @@ async function main() {
   await query(schema);
   console.log('[importar] schema.sql aplicado.');
 
-  const raw = await fs.readFile(INVENTARIO_PATH, 'utf8');
+  if (IMPORT_RESET_DATABASE) {
+    console.warn(
+      '[importar] IMPORT_RESET_DATABASE=true — zerando usuários (inclusive admin até recriado), máquinas, histórico e sessões.'
+    );
+    await limparTodosDados();
+    console.log('[importar] Base zerada antes da nova carga.');
+  }
+
+  const inventarioPath = resolveInventarioPath();
+  console.log('[importar] Arquivo:', inventarioPath);
+
+  const raw = await fs.readFile(inventarioPath, 'utf8');
   const data = JSON.parse(raw);
 
   const inv = data?.inventario;
