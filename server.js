@@ -10,6 +10,7 @@ require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST || '0.0.0.0';
 const STATUS_VALIDOS = new Set(['PRESENTE', 'AUSENTE']);
 
 app.set('trust proxy', 1);
@@ -526,8 +527,8 @@ function sanitizeUser(user) {
 
 ensureSchema()
   .then(() => {
-    app.listen(PORT, () => {
-      console.log(`Inventário TI rodando na porta ${PORT}`);
+    app.listen(PORT, HOST, () => {
+      console.log(`Inventário TI em http://${HOST}:${PORT}`);
     });
   })
   .catch((error) => {

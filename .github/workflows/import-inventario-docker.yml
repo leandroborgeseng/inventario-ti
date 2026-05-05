@@ -11,7 +11,7 @@ on:
       - importar-json.js
       - schema.sql
       - db.js
-      - Dockerfile
+      - Dockerfile.import
       - package.json
       - package-lock.json
       - .github/workflows/import-inventario-docker.yml
@@ -24,7 +24,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build imagem de importação
-        run: docker build -t inventario-ti-import .
+        run: docker build -f Dockerfile.import -t inventario-ti-import .
 
       - name: Executar importação
         env:
