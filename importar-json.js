@@ -9,6 +9,10 @@ const SCHEMA_PATH = path.join(__dirname, 'schema.sql');
 const CREDENCIAIS_PATH = path.join(__dirname, 'usuarios_criados.json');
 const ATUALIZAR_SENHAS = process.env.RESET_PASSWORDS === 'true';
 
+/** Sobrescreve status físico no banco pelo JSON (usa null no JSON como “pendente”). */
+const REPLACE_STATUS_FROM_JSON =
+  process.env.IMPORT_REPLACE_STATUS_FROM_JSON === 'true';
+
 function parseDataAquisicao(valor) {
   if (!valor) {
     return null;
@@ -79,6 +83,10 @@ async function main() {
     }
 
     for (const computador of computadores) {
+      const statusSql = REPLACE_STATUS_FROM_JSON
+        ? 'status_inventario = EXCLUDED.status_inventario,'
+        : '';
+
       await query(
         `INSERT INTO computadores (
           placa,
@@ -102,6 +110,9 @@ async function main() {
           dt_aquisicao = EXCLUDED.dt_aquisicao,
           conservacao = EXCLUDED.conservacao,
           secretaria = EXCLUDED.secretaria,
+          ${statusSql}
+          nome_maquina = COALESCE(NULLIF(computadores.nome_maquina, ''), EXCLUDED.nome_maquina),
+          ip_maquina = COALESCE(NULLIF(computadores.ip_maquina, ''), EXCLUDED.ip_maquina),
           numero_serie = COALESCE(NULLIF(computadores.numero_serie, ''), EXCLUDED.numero_serie),
           observacao = COALESCE(NULLIF(computadores.observacao, ''), EXCLUDED.observacao)`,
         [
@@ -123,8 +134,15 @@ async function main() {
   }
 
   if (credenciaisCriadas.length) {
-    await fs.writeFile(CREDENCIAIS_PATH, JSON.stringify(credenciaisCriadas, null, 2));
-    console.log(`Credenciais criadas em ${CREDENCIAIS_PATH}`);
+    try {
+      await fs.writeFile(CREDENCIAIS_PATH, JSON.stringify(credenciaisCriadas, null, 2));
+      console.log(`Credenciais criadas em ${CREDENCIAIS_PATH}`);
+    } catch (err) {
+      console.warn(
+        'Não foi possível gravar usuarios_criados.json (comum em release na nuvem).',
+        err && err.code ? `[${err.code}]` : err.message || err
+      );
+    }
   } else {
     console.log('Nenhum usuário novo criado. As credenciais existentes foram preservadas.');
   }

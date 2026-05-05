@@ -1,0 +1,3 @@
+[deploy]
+# Roda antes do servidor; usa DATABASE_URL/PG_* do projeto (PostgreSQL Railway).
+releaseCommand = "node importar-json.js"
