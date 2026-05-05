@@ -1,3 +1,7 @@
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
 [deploy]
-# Roda antes do servidor; usa DATABASE_URL/PG_* do projeto (PostgreSQL Railway).
-releaseCommand = "node importar-json.js"
+# Railway usa preDeployCommand (releaseCommand não existe aqui — era ignorado).
+preDeployCommand = "node importar-json.js"

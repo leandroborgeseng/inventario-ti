@@ -35,13 +35,73 @@ function parseDataAquisicao(valor) {
   return `${ano}-${mes}-${dia}`;
 }
 
+function normalizarStatusInventario(valor) {
+  if (valor == null || String(valor).trim() === '') {
+    return null;
+  }
+
+  const s = String(valor).trim().toUpperCase();
+  if (s === 'PRESENTE' || s === 'AUSENTE') {
+    return s;
+  }
+
+  throw new Error(
+    `status_inventario inválido (${JSON.stringify(valor)}). Use PRESENTE, AUSENTE ou omita/null.`
+  );
+}
+
+function listaComputadoresSecretaria(secretariaNome, entrada) {
+  if (Array.isArray(entrada)) {
+    return entrada;
+  }
+
+  console.warn(
+    `[importar] Secretaria "${secretariaNome}" não é um array válido — ignoramos (${typeof entrada}).`
+  );
+
+  return [];
+}
+
 async function main() {
+  const dbUrl = typeof process.env.DATABASE_URL === 'string'
+    ? process.env.DATABASE_URL.trim()
+    : '';
+
+  if (!dbUrl) {
+    console.error(
+      '[importar] DATABASE_URL vazio ou ausente. Na Railway referencie o PostgreSQL ao serviço web para injetar a URL.'
+    );
+    throw new Error('DATABASE_URL obrigatório');
+  }
+
+  console.log('[importar] PostgreSQL configurado:', dbUrl.includes('@') ? '[redacted URL]' : dbUrl.slice(0, 12));
+
   const schema = await fs.readFile(SCHEMA_PATH, 'utf8');
   await query(schema);
+  console.log('[importar] schema.sql aplicado.');
 
   const raw = await fs.readFile(INVENTARIO_PATH, 'utf8');
   const data = JSON.parse(raw);
-  const secretarias = data?.inventario?.secretarias || {};
+
+  const inv = data?.inventario;
+  if (!inv || typeof inv.secretarias !== 'object' || inv.secretarias === null) {
+    throw new Error(
+      'JSON inválido: falta objeto inventario.secretarias ou não é um objeto.'
+    );
+  }
+
+  const secretarias = inv.secretarias;
+  const nomeSecretarias = Object.keys(secretarias);
+  let totalJson = nomeSecretarias.reduce((acc, nome) => {
+    const lst = listaComputadoresSecretaria(nome, secretarias[nome]);
+
+    return acc + lst.length;
+  }, 0);
+
+  console.log(
+    `[importar] secretarias=${nomeSecretarias.length} computadores no JSON=${totalJson} REPLACE_STATUS_FROM_JSON=${REPLACE_STATUS_FROM_JSON}`
+  );
+
   const credenciaisCriadas = [];
 
   const adminPassword = process.env.ADMIN_PASSWORD || gerarSenha();
@@ -65,7 +125,14 @@ async function main() {
     });
   }
 
-  for (const [secretaria, computadores] of Object.entries(secretarias)) {
+  let upsertsOk = 0;
+
+  for (const [secretaria, entradaComputadores] of Object.entries(secretarias)) {
+    const computadoresLista = listaComputadoresSecretaria(
+      secretaria,
+      entradaComputadores
+    );
+
     const usuario = gerarUsuarioSecretaria(secretaria);
     const senha = process.env.DEFAULT_SECRETARIA_PASSWORD || gerarSenha();
     const resultado = await criarUsuario({
@@ -74,15 +141,38 @@ async function main() {
       senha,
       secretaria,
       perfil: 'secretaria',
-      atualizarSenha: Boolean(process.env.DEFAULT_SECRETARIA_PASSWORD) && ATUALIZAR_SENHAS,
+      atualizarSenha: Boolean(process.env.DEFAULT_SECRETARIA_PASSWORD) &&
+        ATUALIZAR_SENHAS,
       mustChangePassword: true
     });
 
     if (resultado) {
-      credenciaisCriadas.push({ nome: secretaria, usuario, senha, perfil: 'secretaria', acao: resultado });
+      credenciaisCriadas.push({
+        nome: secretaria,
+        usuario,
+        senha,
+        perfil: 'secretaria',
+        acao: resultado
+      });
     }
 
-    for (const computador of computadores) {
+    for (const computadorRaw of computadoresLista) {
+      const computador = computadorRaw && typeof computadorRaw === 'object'
+        ? computadorRaw
+        : null;
+
+      if (!computador) {
+        console.warn('[importar] Item ignorado (não objeto) em:', secretaria);
+        continue;
+      }
+
+      const placa = computador.placa != null ? String(computador.placa).trim() : '';
+
+      if (!placa) {
+        console.warn('[importar] Registro sem placa ignorado:', secretaria, computador);
+        continue;
+      }
+
       const statusSql = REPLACE_STATUS_FROM_JSON
         ? 'status_inventario = EXCLUDED.status_inventario,'
         : '';
@@ -116,22 +206,27 @@ async function main() {
           numero_serie = COALESCE(NULLIF(computadores.numero_serie, ''), EXCLUDED.numero_serie),
           observacao = COALESCE(NULLIF(computadores.observacao, ''), EXCLUDED.observacao)`,
         [
-          computador.placa,
+          placa,
           computador.bem_patrimonial || '',
           computador.tipo || '',
           computador.setor || '',
           parseDataAquisicao(computador.dt_aquisicao),
           computador.conservacao || '',
           secretaria,
-          computador.status_inventario || null,
-          computador.numero_serie || '',
-          computador.nome_maquina || '',
-          computador.ip_maquina || '',
+          normalizarStatusInventario(computador.status_inventario),
+          computador.numero_serie ? String(computador.numero_serie) : '',
+          computador.nome_maquina ? String(computador.nome_maquina) : '',
+          computador.ip_maquina ? String(computador.ip_maquina) : '',
           computador.observacao || ''
         ]
       );
+
+      upsertsOk += 1;
     }
   }
+
+  const countRows = await query('SELECT COUNT(*)::bigint AS total FROM computadores');
+  console.log('[importar] Linhas/processadas UPSERT=', upsertsOk, '| COUNT(computadores)=', Number(countRows.rows[0]?.total ?? 0));
 
   if (credenciaisCriadas.length) {
     try {
@@ -139,7 +234,7 @@ async function main() {
       console.log(`Credenciais criadas em ${CREDENCIAIS_PATH}`);
     } catch (err) {
       console.warn(
-        'Não foi possível gravar usuarios_criados.json (comum em release na nuvem).',
+        'Não foi possível gravar usuarios_criados.json (comum em pré-deploy na nuvem).',
         err && err.code ? `[${err.code}]` : err.message || err
       );
     }
@@ -199,7 +294,7 @@ function gerarSenha() {
 
 main()
   .catch((error) => {
-    console.error(error);
+    console.error('[importar]', error);
     process.exitCode = 1;
   })
   .finally(() => pool.end());
