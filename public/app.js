@@ -1,5 +1,6 @@
 const STATUS = {
   PRESENTE: 'PRESENTE',
+  PRESENTE_SEM_FUNCIONAMENTO: 'PRESENTE_SEM_FUNCIONAMENTO',
   AUSENTE: 'AUSENTE'
 };
 
@@ -171,30 +172,22 @@ function bindEvents() {
   });
 
   elements.computerList.addEventListener('click', async (event) => {
-    const button = event.target.closest('button[data-status]');
-    if (!button) {
+    const choice = event.target.closest('button[data-status-choice]');
+    if (choice) {
+      const card = choice.closest('.computer-card');
+      card.querySelectorAll('button[data-status-choice]').forEach((btn) => {
+        btn.setAttribute('aria-pressed', String(btn === choice));
+      });
       return;
     }
 
-    const card = button.closest('.computer-card');
-    const payload = collectComputerPayload(card, button.dataset.status);
-
-    if (!payload) {
+    const saveBtn = event.target.closest('button[data-save-computer]');
+    if (!saveBtn) {
       return;
     }
 
-    await saveComputer(button.dataset.id, payload, card);
-  });
-
-  elements.computerList.addEventListener('change', async (event) => {
-    const input = event.target.closest('input[data-field]');
-    if (!input) {
-      return;
-    }
-
-    const card = input.closest('.computer-card');
-    const payload = collectComputerPayload(card, card.dataset.status || null);
-
+    const card = saveBtn.closest('.computer-card');
+    const payload = validateAndBuildComputerPayload(card);
     if (!payload) {
       return;
     }
@@ -297,7 +290,7 @@ function renderHome() {
   elements.logoutButton.classList.remove('hidden');
   elements.subtitle.textContent = `${currentUser.nome} (${currentUser.usuario})`;
   elements.globalProgress.textContent = `${verificados} / ${total} computadores verificados`;
-  elements.exportHint.textContent = 'As alterações são salvas no banco imediatamente, com usuário e data.';
+  elements.exportHint.textContent = 'Use o botão Salvar em cada card para gravar no banco (usuário e data são registrados).';
   elements.adminUsersPanel.classList.toggle('hidden', currentUser.perfil !== 'admin');
   elements.adminUsersPanel.open = false;
 
@@ -461,11 +454,29 @@ function renderSecretaria() {
   elements.computerList.innerHTML = sections.join('');
 }
 
+function statusToCardClass(status) {
+  if (!status) {
+    return 'pendente';
+  }
+
+  return String(status).toLowerCase().replace(/_/g, '-');
+}
+
+function formatStatusInventario(status) {
+  if (status === STATUS.PRESENTE_SEM_FUNCIONAMENTO) {
+    return 'PRESENTE (sem funcionamento)';
+  }
+
+  return status || 'PENDENTE';
+}
+
 function renderComputerCard(item) {
   const statusClass = isExternalSecretaria(item)
     ? 'external-secretaria'
-    : item.status_inventario ? item.status_inventario.toLowerCase() : 'pendente';
+    : statusToCardClass(item.status_inventario);
   const presentActive = item.status_inventario === STATUS.PRESENTE ? 'aria-pressed="true"' : '';
+  const presentPartialActive =
+    item.status_inventario === STATUS.PRESENTE_SEM_FUNCIONAMENTO ? 'aria-pressed="true"' : '';
   const absentActive = item.status_inventario === STATUS.AUSENTE ? 'aria-pressed="true"' : '';
   const otherSecretariaWarning = isExternalSecretaria(item)
     ? `<div class="warning-box">Localizado em outra secretaria: <strong>${escapeHtml(item.secretaria)}</strong>. Você pode preencher as informações; depois ele continuará aparecendo para sua secretaria em uma seção separada.</div>`
@@ -497,7 +508,7 @@ function renderComputerCard(item) {
         </div>
         <div>
           <span class="field-label">Status</span>
-          <span class="field-value">${escapeHtml(item.status_inventario || 'PENDENTE')}</span>
+          <span class="field-value">${escapeHtml(formatStatusInventario(item.status_inventario))}</span>
         </div>
         <div>
           <span class="field-label">Nome da máquina</span>
@@ -513,39 +524,68 @@ function renderComputerCard(item) {
         </div>
       </div>
       <div class="actions-row">
-        <button class="btn-present" type="button" data-id="${item.id}" data-status="${STATUS.PRESENTE}" ${presentActive}>PRESENTE</button>
-        <button class="btn-absent" type="button" data-id="${item.id}" data-status="${STATUS.AUSENTE}" ${absentActive}>AUSENTE</button>
-        <label class="inventory-input required-field">
-          <span class="field-label">Número de série *</span>
-          <input type="text" data-field="numero_serie" value="${escapeHtml(item.numero_serie || '')}" placeholder="Ex.: ABC123456" required>
-        </label>
+        <button class="btn-present" type="button" data-status-choice data-status="${STATUS.PRESENTE}" ${presentActive}>Presente (funcionando)</button>
+        <button class="btn-present-partial" type="button" data-status-choice data-status="${STATUS.PRESENTE_SEM_FUNCIONAMENTO}" ${presentPartialActive}>Presente (sem funcionamento)</button>
+        <button class="btn-absent" type="button" data-status-choice data-status="${STATUS.AUSENTE}" ${absentActive}>Ausente</button>
         <label class="inventory-input">
-          <span class="field-label">Nome da máquina</span>
-          <input type="text" data-field="nome_maquina" value="${escapeHtml(item.nome_maquina || '')}" placeholder="Nome da Máquina">
+          <span class="field-label">Número de série (obrigatório só se “Presente (funcionando)”)</span>
+          <input type="text" data-field="numero_serie" value="${escapeHtml(item.numero_serie || '')}" placeholder="Ex.: ABC123456">
+        </label>
+        <label class="inventory-input required-field">
+          <span class="field-label">Nome da máquina *</span>
+          <input type="text" data-field="nome_maquina" value="${escapeHtml(item.nome_maquina || '')}" placeholder="Nome ou identificação (ex.: patrimônio)">
         </label>
         <label class="inventory-input">
           <span class="field-label">IP da máquina</span>
           <input type="text" data-field="ip_maquina" value="${escapeHtml(item.ip_maquina || '')}" placeholder="IP da Máquina">
         </label>
-        <label class="inventory-input">
-          <span class="field-label">Observação</span>
-          <input type="text" data-field="observacao" value="${escapeHtml(item.observacao || '')}" placeholder="Observação opcional">
-        </label>
+        <details class="obs-collapsible">
+          <summary class="obs-summary">
+            Observação opcional${(item.observacao || '').trim() ? ' <span class="obs-pill">com texto</span>' : ''}
+          </summary>
+          <label class="inventory-input obs-collapsible-body">
+            <span class="field-label">Observação</span>
+            <input type="text" data-field="observacao" value="${escapeHtml(item.observacao || '')}" placeholder="Observação opcional">
+          </label>
+        </details>
+        <button class="btn-primary btn-save-card" type="button" data-save-computer>Salvar</button>
         <span class="save-state muted"></span>
       </div>
     </article>
   `;
 }
 
-function collectComputerPayload(card, status) {
+function getSelectedInventoryStatus(card) {
+  const pressed = card.querySelector('button[data-status-choice][aria-pressed="true"]');
+  return pressed ? pressed.dataset.status : null;
+}
+
+function validateAndBuildComputerPayload(card) {
+  const status = getSelectedInventoryStatus(card);
   const serialInput = card.querySelector('input[data-field="numero_serie"]');
   const machineNameInput = card.querySelector('input[data-field="nome_maquina"]');
   const machineIpInput = card.querySelector('input[data-field="ip_maquina"]');
   const observationInput = card.querySelector('input[data-field="observacao"]');
-  const numeroSerie = serialInput.value.trim();
 
-  if (status && !numeroSerie) {
-    window.alert('Informe o número de série antes de marcar o computador.');
+  if (!status) {
+    window.alert('Selecione se o equipamento está presente (funcionando), presente sem funcionamento ou ausente.');
+    const firstChoice = card.querySelector('button[data-status-choice]');
+    if (firstChoice) {
+      firstChoice.focus();
+    }
+    return null;
+  }
+
+  const nomeMaquina = machineNameInput.value.trim();
+  if (!nomeMaquina) {
+    window.alert('Informe o nome da máquina (ou uma identificação, ex. placa patrimonial).');
+    machineNameInput.focus();
+    return null;
+  }
+
+  const numeroSerie = serialInput.value.trim();
+  if (status === STATUS.PRESENTE && !numeroSerie) {
+    window.alert('Para “Presente (funcionando)”, informe o número de série. Se o equipamento não liga ou não há série, use “Presente (sem funcionamento)” ou “Ausente”.');
     serialInput.focus();
     return null;
   }
@@ -553,10 +593,26 @@ function collectComputerPayload(card, status) {
   return {
     status_inventario: status,
     numero_serie: numeroSerie,
-    nome_maquina: machineNameInput.value,
-    ip_maquina: machineIpInput.value,
-    observacao: observationInput.value
+    nome_maquina: nomeMaquina,
+    ip_maquina: machineIpInput.value.trim(),
+    observacao: observationInput.value.trim()
   };
+}
+
+async function refreshSecretariaSummaries() {
+  const data = await api('/api/secretarias');
+  secretarias = data.secretarias;
+
+  if (!currentSecretaria) {
+    return;
+  }
+
+  const secretariaSummary = secretarias.find((item) => item.secretaria === currentSecretaria);
+  const total = secretariaSummary?.total ?? 0;
+  const verificados = secretariaSummary?.verificados ?? 0;
+  const percentual = secretariaSummary?.percentual ?? 0;
+  elements.secretariaProgress.textContent = `${verificados} de ${total} verificados`;
+  elements.secretariaProgressBar.style.width = `${percentual}%`;
 }
 
 async function saveComputer(id, payload, card) {
@@ -569,10 +625,8 @@ async function saveComputer(id, payload, card) {
       body: payload
     });
     saveState.textContent = 'Salvo';
-    await loadHome();
-    if (currentSecretaria) {
-      await loadComputadores();
-    }
+    await refreshSecretariaSummaries();
+    await loadComputadores();
   } catch (error) {
     saveState.textContent = '';
     window.alert(error.message);

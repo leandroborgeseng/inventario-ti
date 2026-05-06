@@ -11,7 +11,7 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
-const STATUS_VALIDOS = new Set(['PRESENTE', 'AUSENTE']);
+const STATUS_VALIDOS = new Set(['PRESENTE', 'AUSENTE', 'PRESENTE_SEM_FUNCIONAMENTO']);
 
 app.set('trust proxy', 1);
 app.use(express.json({ limit: '1mb' }));
@@ -156,7 +156,7 @@ app.get('/api/secretarias', requireAuth, requirePasswordReady, async (req, res) 
     `SELECT
       secretaria,
       COUNT(*)::int AS total,
-      COUNT(*) FILTER (WHERE status_inventario = 'PRESENTE')::int AS presentes,
+      COUNT(*) FILTER (WHERE status_inventario IN ('PRESENTE', 'PRESENTE_SEM_FUNCIONAMENTO'))::int AS presentes,
       COUNT(*) FILTER (WHERE status_inventario = 'AUSENTE')::int AS ausentes,
       COUNT(*) FILTER (WHERE status_inventario IS NULL)::int AS pendentes
     FROM computadores
@@ -204,8 +204,7 @@ app.get('/api/secretarias/:secretaria/computadores', requireAuth, requirePasswor
   if (!hasBusca && status === 'pendentes') {
     where.push('status_inventario IS NULL');
   } else if (!hasBusca && status === 'presentes') {
-    params.push('PRESENTE');
-    where.push(`status_inventario = $${params.length}`);
+    where.push(`status_inventario IN ('PRESENTE', 'PRESENTE_SEM_FUNCIONAMENTO')`);
   } else if (!hasBusca && status === 'ausentes') {
     params.push('AUSENTE');
     where.push(`status_inventario = $${params.length}`);
@@ -281,14 +280,19 @@ app.patch('/api/computadores/:id', requireAuth, requirePasswordReady, async (req
     return res.status(400).json({ error: 'Computador inválido.' });
   }
 
-  if (status_inventario !== null && !STATUS_VALIDOS.has(status_inventario)) {
-    return res.status(400).json({ error: 'Status inválido.' });
+  if (!status_inventario || !STATUS_VALIDOS.has(status_inventario)) {
+    return res.status(400).json({ error: 'Selecione o status do inventário (presente, ausente ou presente sem funcionamento).' });
   }
 
   const novoNumeroSerie = String(numero_serie || '').trim();
+  const novoNomeMaquinaPreview = String(nome_maquina || '').trim();
 
-  if (status_inventario && !novoNumeroSerie) {
-    return res.status(400).json({ error: 'Informe o número de série antes de marcar o computador.' });
+  if (!novoNomeMaquinaPreview) {
+    return res.status(400).json({ error: 'Informe o nome da máquina.' });
+  }
+
+  if (status_inventario === 'PRESENTE' && !novoNumeroSerie) {
+    return res.status(400).json({ error: 'Para equipamento presente em funcionamento, informe o número de série.' });
   }
 
   const client = await pool.connect();

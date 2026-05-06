@@ -51,12 +51,12 @@ function normalizarStatusInventario(valor) {
   }
 
   const s = String(valor).trim().toUpperCase();
-  if (s === 'PRESENTE' || s === 'AUSENTE') {
+  if (s === 'PRESENTE' || s === 'AUSENTE' || s === 'PRESENTE_SEM_FUNCIONAMENTO') {
     return s;
   }
 
   throw new Error(
-    `status_inventario inválido (${JSON.stringify(valor)}). Use PRESENTE, AUSENTE ou omita/null.`
+    `status_inventario inválido (${JSON.stringify(valor)}). Use PRESENTE, PRESENTE_SEM_FUNCIONAMENTO, AUSENTE ou omita/null.`
   );
 }
 

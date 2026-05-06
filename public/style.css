@@ -119,6 +119,12 @@ select {
   border: 1px solid #b7e3c5;
 }
 
+.btn-present-partial {
+  background: #fff3d6;
+  color: #9a6700;
+  border: 1px solid #e8c96a;
+}
+
 .btn-absent {
   background: #ffdcdc;
   color: var(--vermelho-forte);
@@ -350,6 +356,11 @@ code {
   border-left-color: var(--verde-forte);
 }
 
+.computer-card.presente-sem-funcionamento {
+  background: #fff8e6;
+  border-left-color: #d4a012;
+}
+
 .computer-card.ausente {
   background: var(--vermelho);
   border-left-color: var(--vermelho-forte);
@@ -415,6 +426,12 @@ code {
   margin-top: 12px;
 }
 
+.btn-save-card {
+  flex: 0 0 auto;
+  font-weight: 700;
+  padding: 10px 18px;
+}
+
 .actions-row input {
   flex: 1 1 260px;
   min-width: 220px;
@@ -434,6 +451,89 @@ code {
 
 .required-field .field-label {
   color: var(--azul);
+}
+
+.obs-collapsible {
+  flex: 1 1 100%;
+  width: 100%;
+  border: 1px solid var(--cinza-borda);
+  border-radius: 10px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.obs-collapsible[open] {
+  background: var(--branco);
+}
+
+.obs-summary {
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  list-style: none;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.obs-summary::-webkit-details-marker {
+  display: none;
+}
+
+.obs-summary::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: rotate(-45deg);
+  margin-top: -2px;
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+.obs-collapsible[open] .obs-summary::before {
+  transform: rotate(45deg);
+  margin-top: 2px;
+}
+
+.obs-summary:hover,
+.obs-summary:focus-visible {
+  color: var(--azul);
+}
+
+.obs-summary:focus-visible {
+  outline: 2px solid var(--azul-claro);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.obs-pill {
+  display: inline-block;
+  font-weight: 600;
+  font-size: 0.72rem;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--azul);
+  background: rgba(18, 58, 99, 0.1);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.obs-collapsible-body {
+  margin-top: 10px;
+  flex: 1 1 100%;
+  min-width: 0;
+  width: 100%;
+}
+
+.obs-collapsible-body input {
+  width: 100%;
 }
 
 .empty,
@@ -523,6 +623,7 @@ code {
 
   .actions-row button,
   .actions-row input,
+  .actions-row details.obs-collapsible,
   .modal-actions button,
   .search-row button,
   .search-row input {

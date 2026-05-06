@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS computadores (
   dt_aquisicao DATE,
   conservacao TEXT,
   secretaria TEXT NOT NULL,
-  status_inventario TEXT CHECK (status_inventario IN ('PRESENTE', 'AUSENTE')),
+  status_inventario TEXT CHECK (status_inventario IN ('PRESENTE', 'AUSENTE', 'PRESENTE_SEM_FUNCIONAMENTO')),
   numero_serie TEXT NOT NULL DEFAULT '',
   nome_maquina TEXT NOT NULL DEFAULT '',
   ip_maquina TEXT NOT NULL DEFAULT '',
