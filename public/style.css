@@ -418,23 +418,48 @@ code {
   overflow-wrap: anywhere;
 }
 
-.actions-row {
+.card-form-fields {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  align-items: flex-start;
   flex-wrap: wrap;
+  gap: 10px;
   margin-top: 12px;
 }
 
-.btn-save-card {
-  flex: 0 0 auto;
-  font-weight: 700;
-  padding: 10px 18px;
-}
-
-.actions-row input {
+.card-form-fields input {
   flex: 1 1 260px;
   min-width: 220px;
+}
+
+.card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(148, 163, 184, 0.45);
+}
+
+.card-actions-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 auto;
+}
+
+.card-actions-save {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+.btn-save-card {
+  font-weight: 700;
+  padding: 10px 18px;
 }
 
 .inventory-input {
@@ -453,9 +478,12 @@ code {
   color: var(--azul);
 }
 
-.obs-collapsible {
+.card-form-fields .obs-collapsible {
   flex: 1 1 100%;
   width: 100%;
+}
+
+.obs-collapsible {
   border: 1px solid var(--cinza-borda);
   border-radius: 10px;
   padding: 8px 12px;
@@ -621,9 +649,9 @@ code {
     grid-template-columns: 1fr;
   }
 
-  .actions-row button,
-  .actions-row input,
-  .actions-row details.obs-collapsible,
+  .card-actions button,
+  .card-form-fields input,
+  .card-form-fields details.obs-collapsible,
   .modal-actions button,
   .search-row button,
   .search-row input {

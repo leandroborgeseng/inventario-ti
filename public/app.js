@@ -195,6 +195,15 @@ function bindEvents() {
     await saveComputer(card.dataset.id, payload, card);
   });
 
+  elements.computerList.addEventListener('input', (event) => {
+    const ipInput = event.target.closest('input[data-field="ip_maquina"]');
+    if (!ipInput) {
+      return;
+    }
+
+    formatIpv4Field(ipInput);
+  });
+
   elements.adminUserSelect.addEventListener('change', () => {
     if (!elements.adminUserSelect.value) {
       return;
@@ -523,10 +532,7 @@ function renderComputerCard(item) {
           <span class="field-value">${escapeHtml(item.numero_serie || 'Não informado')}</span>
         </div>
       </div>
-      <div class="actions-row">
-        <button class="btn-present" type="button" data-status-choice data-status="${STATUS.PRESENTE}" ${presentActive}>Presente (funcionando)</button>
-        <button class="btn-present-partial" type="button" data-status-choice data-status="${STATUS.PRESENTE_SEM_FUNCIONAMENTO}" ${presentPartialActive}>Presente (sem funcionamento)</button>
-        <button class="btn-absent" type="button" data-status-choice data-status="${STATUS.AUSENTE}" ${absentActive}>Ausente</button>
+      <div class="card-form-fields">
         <label class="inventory-input">
           <span class="field-label">Número de série (obrigatório só se “Presente (funcionando)”)</span>
           <input type="text" data-field="numero_serie" value="${escapeHtml(item.numero_serie || '')}" placeholder="Ex.: ABC123456">
@@ -537,7 +543,7 @@ function renderComputerCard(item) {
         </label>
         <label class="inventory-input">
           <span class="field-label">IP da máquina</span>
-          <input type="text" data-field="ip_maquina" value="${escapeHtml(item.ip_maquina || '')}" placeholder="IP da Máquina">
+          <input type="text" data-field="ip_maquina" value="${escapeHtml(item.ip_maquina || '')}" placeholder="192.168.0.10" maxlength="15" autocomplete="off" spellcheck="false">
         </label>
         <details class="obs-collapsible">
           <summary class="obs-summary">
@@ -548,8 +554,17 @@ function renderComputerCard(item) {
             <input type="text" data-field="observacao" value="${escapeHtml(item.observacao || '')}" placeholder="Observação opcional">
           </label>
         </details>
-        <button class="btn-primary btn-save-card" type="button" data-save-computer>Salvar</button>
-        <span class="save-state muted"></span>
+      </div>
+      <div class="card-actions" role="group" aria-label="Ações do inventário">
+        <div class="card-actions-status" role="group" aria-label="Presente ou ausente">
+          <button class="btn-present" type="button" data-status-choice data-status="${STATUS.PRESENTE}" ${presentActive}>Presente (funcionando)</button>
+          <button class="btn-present-partial" type="button" data-status-choice data-status="${STATUS.PRESENTE_SEM_FUNCIONAMENTO}" ${presentPartialActive}>Presente (sem funcionamento)</button>
+          <button class="btn-absent" type="button" data-status-choice data-status="${STATUS.AUSENTE}" ${absentActive}>Ausente</button>
+        </div>
+        <div class="card-actions-save">
+          <button class="btn-primary btn-save-card" type="button" data-save-computer>Salvar</button>
+          <span class="save-state muted"></span>
+        </div>
       </div>
     </article>
   `;
@@ -682,4 +697,87 @@ function debounce(callback, delay) {
     clearTimeout(timeoutId);
     timeoutId = setTimeout(() => callback(...args), delay);
   };
+}
+
+/** Normaliza dígitos e pontos em até quatro octetos IPv4 (máx. 3 dígitos cada). */
+function normalizeIpv4Input(raw) {
+  let s = String(raw ?? '').replace(/[^\d.]/g, '').replace(/\.+/g, '.').replace(/^\.+/, '');
+  if (!/\d/.test(s)) {
+    return '';
+  }
+
+  const segments = s.split('.');
+  const trailingIncomplete =
+    s.endsWith('.') && segments.length > 0 && segments[segments.length - 1] === '';
+
+  const segmentsToParse = trailingIncomplete ? segments.slice(0, -1) : segments;
+
+  const octets = [];
+
+  for (const segment of segmentsToParse) {
+    let digits = segment.replace(/\D/g, '');
+    if (!digits.length) continue;
+
+    while (digits.length > 3 && octets.length < 3) {
+      octets.push(digits.slice(0, 3));
+      digits = digits.slice(3);
+    }
+    if (!digits.length) continue;
+    octets.push(digits.slice(0, 3));
+    if (octets.length >= 4) break;
+  }
+
+  let result = octets.slice(0, 4).join('.');
+  if (trailingIncomplete && octets.length < 4 && !result.endsWith('.')) {
+    result += '.';
+  }
+  return result.slice(0, 15);
+}
+
+function caretAfterIpv4Format(previous, caretBefore, formatted) {
+  if (caretBefore >= previous.length) {
+    return formatted.length;
+  }
+
+  const prefix = previous.slice(0, caretBefore);
+  const targetDigits = prefix.replace(/\D/g, '').length;
+  const advancesPastDotAfterOctet = /\.$/.test(prefix);
+
+  if (!targetDigits) {
+    return 0;
+  }
+
+  let count = 0;
+  for (let i = 0; i < formatted.length; i += 1) {
+    if (/\d/.test(formatted[i])) {
+      count += 1;
+      if (count === targetDigits) {
+        let pos = i + 1;
+        if (advancesPastDotAfterOctet && pos < formatted.length && formatted[pos] === '.') {
+          pos += 1;
+        }
+        return pos;
+      }
+    }
+  }
+
+  return formatted.length;
+}
+
+function formatIpv4Field(input) {
+  const before = input.value;
+  let caretBefore = typeof input.selectionStart === 'number' ? input.selectionStart : before.length;
+  caretBefore = Math.min(Math.max(caretBefore, 0), before.length);
+  const formatted = normalizeIpv4Input(before);
+  if (formatted === before) {
+    return;
+  }
+
+  input.value = formatted;
+  const caret = caretAfterIpv4Format(before, caretBefore, formatted);
+  try {
+    input.setSelectionRange(caret, caret);
+  } catch {
+    /* modo compatível pode não aceitar seleção */
+  }
 }
